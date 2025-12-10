@@ -89,7 +89,6 @@ Return ONLY valid JSON that conforms to this schema. Do not include any markdown
     response_format: {
       type: "json_object",
     },
-    max_completion_tokens: maxTokens,
     temperature: 0.3,
   })
 
@@ -139,7 +138,6 @@ export async function generateText({
         content: prompt,
       },
     ],
-    max_completion_tokens: maxTokens,
     temperature,
   })
 
