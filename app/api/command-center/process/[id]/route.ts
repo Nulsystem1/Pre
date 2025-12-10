@@ -207,9 +207,21 @@ Missing: ${decision.missing_information?.join(", ") || "unclear"}`,
     if (requiresHumanReview) {
       await query(
         `INSERT INTO review_items (
-          decision_id, confidence, missing_information, auto_routed, status
-        ) VALUES ($1, $2, $3, true, 'open')`,
-        [decisionData?.[0]?.id, bestDecision.confidence, bestDecision.missing_information || []]
+          event_id, decision_id, entity_id, entity_name, confidence_score, 
+          recommended_action, reasoning, confidence, missing_information, 
+          auto_routed, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true, 'pending')`,
+        [
+          eventId,
+          decisionData?.[0]?.id,
+          pending.event_data?.vendor?.name || pending.event_data?.customer?.id || "unknown",
+          pending.event_data?.vendor?.name || pending.event_data?.customer?.name || "Unknown Entity",
+          bestDecision.confidence,
+          bestDecision.outcome,
+          bestDecision.reasoning,
+          bestDecision.confidence,
+          bestDecision.missing_information || []
+        ]
       )
     }
 
