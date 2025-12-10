@@ -1,76 +1,114 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import useSWR from "swr"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Activity, TrendingUp, TrendingDown, Clock, CheckCircle2, XCircle, AlertTriangle, Zap, Users } from "lucide-react"
 import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"
 import Link from "next/link"
 
+const fetcher = (url: string) => fetch(url).then((r) => r.json())
+
 export default function DashboardPage() {
-  const [stats, setStats] = useState({
-    total_decisions: 0,
-    approved: 0,
-    blocked: 0,
-    review: 0,
+  const { data: auditData, isLoading } = useSWR("/api/audit", fetcher, {
+    refreshInterval: 5000,
+  })
+  
+  const decisions = auditData?.data?.decisions || []
+  
+  // Calculate stats from real data
+  const stats = {
+    total_decisions: decisions.length,
+    approved: decisions.filter((d: any) => d.outcome === "APPROVED").length,
+    blocked: decisions.filter((d: any) => d.outcome === "BLOCKED").length,
+    review: decisions.filter((d: any) => d.outcome === "REVIEW").length,
     pending: 0,
-    avg_confidence: 0,
-    processing_today: 0,
+    avg_confidence: decisions.length > 0
+      ? Math.round(decisions.reduce((sum: number, d: any) => sum + (parseFloat(d.confidence) || 0), 0) / decisions.length * 100)
+      : 0,
+    processing_today: decisions.filter((d: any) => 
+      new Date(d.created_at).toDateString() === new Date().toDateString()
+    ).length,
+  }
+
+  // Generate trend data from real decisions (last 7 days)
+  const getLast7Days = () => {
+    const days = []
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date()
+      date.setDate(date.getDate() - i)
+      days.push({
+        date: dayNames[date.getDay()],
+        fullDate: date.toDateString(),
+      })
+    }
+    return days
+  }
+
+  const decisionTrendData = getLast7Days().map((day) => {
+    const dayDecisions = decisions.filter((d: any) => 
+      new Date(d.created_at).toDateString() === day.fullDate
+    )
+    return {
+      date: day.date,
+      approved: dayDecisions.filter((d: any) => d.outcome === "APPROVED").length,
+      blocked: dayDecisions.filter((d: any) => d.outcome === "BLOCKED").length,
+      review: dayDecisions.filter((d: any) => d.outcome === "REVIEW").length,
+    }
   })
 
-  useEffect(() => {
-    fetch("/api/audit")
-      .then((res) => res.json())
-      .then((data) => {
-        const decisions = data?.data?.decisions || []
-        setStats({
-          total_decisions: decisions.length,
-          approved: decisions.filter((d: any) => d.outcome === "APPROVED").length,
-          blocked: decisions.filter((d: any) => d.outcome === "BLOCKED").length,
-          review: decisions.filter((d: any) => d.outcome === "REVIEW").length,
-          pending: 0,
-          avg_confidence: decisions.length > 0
-            ? Math.round(decisions.reduce((sum: number, d: any) => sum + (parseFloat(d.confidence) || 0), 0) / decisions.length * 100)
-            : 0,
-          processing_today: decisions.filter((d: any) => 
-            new Date(d.created_at).toDateString() === new Date().toDateString()
-          ).length,
-        })
-      })
-  }, [])
-
-  // Sample data for charts
-  const decisionTrendData = [
-    { date: "Mon", approved: 12, blocked: 3, review: 5 },
-    { date: "Tue", approved: 15, blocked: 2, review: 6 },
-    { date: "Wed", approved: 18, blocked: 4, review: 3 },
-    { date: "Thu", approved: 14, blocked: 1, review: 7 },
-    { date: "Fri", approved: 20, blocked: 2, review: 4 },
-    { date: "Sat", approved: 8, blocked: 0, review: 2 },
-    { date: "Sun", approved: 6, blocked: 1, review: 1 },
+  // Confidence distribution from real data
+  const confidenceDistribution = [
+    { 
+      range: "90-100%", 
+      count: decisions.filter((d: any) => parseFloat(d.confidence) >= 0.9).length 
+    },
+    { 
+      range: "80-90%", 
+      count: decisions.filter((d: any) => parseFloat(d.confidence) >= 0.8 && parseFloat(d.confidence) < 0.9).length 
+    },
+    { 
+      range: "70-80%", 
+      count: decisions.filter((d: any) => parseFloat(d.confidence) >= 0.7 && parseFloat(d.confidence) < 0.8).length 
+    },
+    { 
+      range: "< 70%", 
+      count: decisions.filter((d: any) => parseFloat(d.confidence) < 0.7).length 
+    },
   ]
 
+  // Risk score over time (last 24 hours in 4-hour blocks)
+  const getRiskScoreTimeline = () => {
+    const timeline = []
+    const now = new Date()
+    for (let i = 24; i >= 0; i -= 4) {
+      const time = new Date(now.getTime() - i * 60 * 60 * 1000)
+      const startTime = new Date(time.getTime() - 4 * 60 * 60 * 1000)
+      const timeDecisions = decisions.filter((d: any) => {
+        const decisionTime = new Date(d.created_at)
+        return decisionTime >= startTime && decisionTime < time
+      })
+      const avgRisk = timeDecisions.length > 0
+        ? Math.round(timeDecisions.reduce((sum: number, d: any) => sum + (d.risk_score || 0), 0) / timeDecisions.length)
+        : 0
+      timeline.push({
+        hour: time.getHours().toString().padStart(2, '0') + ":00",
+        avgRisk,
+      })
+    }
+    return timeline
+  }
+
+  const riskScoreData = getRiskScoreTimeline()
+
+  // Sample data for charts
   const outcomeDistribution = [
     { name: "Approved", value: stats.approved, color: "#10b981" },
     { name: "Blocked", value: stats.blocked, color: "#ef4444" },
     { name: "Review", value: stats.review, color: "#f59e0b" },
-  ]
-
-  const confidenceDistribution = [
-    { range: "90-100%", count: Math.floor(stats.total_decisions * 0.4) },
-    { range: "80-90%", count: Math.floor(stats.total_decisions * 0.3) },
-    { range: "70-80%", count: Math.floor(stats.total_decisions * 0.2) },
-    { range: "< 70%", count: Math.floor(stats.total_decisions * 0.1) },
-  ]
-
-  const riskScoreData = [
-    { hour: "00:00", avgRisk: 25 },
-    { hour: "04:00", avgRisk: 30 },
-    { hour: "08:00", avgRisk: 45 },
-    { hour: "12:00", avgRisk: 52 },
-    { hour: "16:00", avgRisk: 38 },
-    { hour: "20:00", avgRisk: 28 },
-  ]
+  ].filter(item => item.value > 0) // Only show non-zero values
 
   return (
     <div className="space-y-6">
@@ -186,7 +224,7 @@ export default function DashboardPage() {
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  label={({ name, percent }) => `${name}: ${((percent || 0) * 100).toFixed(0)}%`}
                   outerRadius={100}
                   fill="#8884d8"
                   dataKey="value"

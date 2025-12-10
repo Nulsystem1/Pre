@@ -8,9 +8,126 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Loader2, Search, TrendingUp, TrendingDown, Minus } from "lucide-react"
+import { Loader2, Search, TrendingUp, TrendingDown, Minus, CheckCircle2, Mail, Webhook, FileText, MessageSquare, Database, Clock, AlertCircle } from "lucide-react"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
+
+// Generate execution steps based on decision outcome
+const getExecutionSteps = (decision: any) => {
+  const baseSteps = [
+    {
+      delay: 0.1,
+      icon: <Database className="h-4 w-4 text-blue-500" />,
+      action: "Decision logged to compliance database",
+      details: `ID: ${decision.id.substring(0, 8)}...`,
+      status: "Completed",
+    },
+  ]
+
+  if (decision.outcome === "APPROVED") {
+    return [
+      ...baseSteps,
+      {
+        delay: 0.3,
+        icon: <Mail className="h-4 w-4 text-green-500" />,
+        action: "Email notification sent to procurement team",
+        details: "to: procurement@example.com",
+        status: "Sent",
+      },
+      {
+        delay: 0.8,
+        icon: <Webhook className="h-4 w-4 text-purple-500" />,
+        action: "Vendor data posted to ERP webhook",
+        details: "POST https://api.example.com/vendors/onboard → 200 OK",
+        status: "Success",
+      },
+      {
+        delay: 1.2,
+        icon: <FileText className="h-4 w-4 text-blue-500" />,
+        action: "Jira ticket created",
+        details: "COMPLIANCE-" + Math.floor(1000 + Math.random() * 9000),
+        status: "Created",
+      },
+      {
+        delay: 1.5,
+        icon: <CheckCircle2 className="h-4 w-4 text-green-500" />,
+        action: "Vendor record updated in CRM",
+        details: "Salesforce: Status → Active",
+        status: "Updated",
+      },
+    ]
+  }
+
+  if (decision.outcome === "REVIEW") {
+    return [
+      ...baseSteps,
+      {
+        delay: 0.3,
+        icon: <Clock className="h-4 w-4 text-yellow-500" />,
+        action: "Routed to human review queue",
+        details: `Confidence: ${((parseFloat(decision.confidence) || 0) * 100).toFixed(0)}% (below threshold)`,
+        status: "Queued",
+      },
+      {
+        delay: 0.5,
+        icon: <Mail className="h-4 w-4 text-yellow-500" />,
+        action: "Email sent to compliance manager",
+        details: "to: compliance-manager@example.com",
+        status: "Sent",
+      },
+      {
+        delay: 0.8,
+        icon: <MessageSquare className="h-4 w-4 text-yellow-500" />,
+        action: "Slack alert posted",
+        details: "#compliance-alerts: @compliance-team New item for review",
+        status: "Posted",
+      },
+      {
+        delay: 1.1,
+        icon: <FileText className="h-4 w-4 text-yellow-500" />,
+        action: "Jira ticket created (High Priority)",
+        details: "COMPLIANCE-" + Math.floor(1000 + Math.random() * 9000),
+        status: "Created",
+      },
+    ]
+  }
+
+  if (decision.outcome === "BLOCKED") {
+    return [
+      ...baseSteps,
+      {
+        delay: 0.2,
+        icon: <AlertCircle className="h-4 w-4 text-red-500" />,
+        action: "Vendor blocked from onboarding",
+        details: "Status: BLOCKED • Added to blocklist",
+        status: "Blocked",
+      },
+      {
+        delay: 0.4,
+        icon: <MessageSquare className="h-4 w-4 text-red-500" />,
+        action: "Urgent Slack alert posted",
+        details: "#compliance-alerts: @channel Vendor blocked - high risk detected",
+        status: "Posted",
+      },
+      {
+        delay: 0.7,
+        icon: <FileText className="h-4 w-4 text-red-500" />,
+        action: "Jira ticket created (Critical)",
+        details: "COMPLIANCE-" + Math.floor(1000 + Math.random() * 9000),
+        status: "Created",
+      },
+      {
+        delay: 1.0,
+        icon: <Database className="h-4 w-4 text-red-500" />,
+        action: "Risk profile updated in fraud detection system",
+        details: "Risk score logged for pattern analysis",
+        status: "Updated",
+      },
+    ]
+  }
+
+  return baseSteps
+}
 
 export default function AuditExplorerPage() {
   const [outcomeFilter, setOutcomeFilter] = useState("all")
@@ -275,6 +392,42 @@ export default function AuditExplorerPage() {
                     </p>
                   </div>
                 )}
+
+                {/* Execution Timeline */}
+                <div>
+                  <p className="text-sm font-medium mb-3 flex items-center gap-2">
+                    <Webhook className="h-4 w-4" />
+                    Execution Timeline
+                  </p>
+                  <div className="space-y-2">
+                    {getExecutionSteps(selectedDecision).map((step, i) => (
+                      <div key={i} className="flex items-start gap-3 text-sm bg-muted/30 rounded-lg p-3 hover:bg-muted/50 transition-colors">
+                        <div className="flex-shrink-0 w-12 text-muted-foreground font-mono text-xs">
+                          {step.delay.toFixed(1)}s
+                        </div>
+                        <div className="flex-shrink-0 mt-0.5">
+                          {step.icon}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium">{step.action}</div>
+                          {step.details && (
+                            <div className="text-xs text-muted-foreground mt-1 font-mono">
+                              {step.details}
+                            </div>
+                          )}
+                          {step.status && (
+                            <Badge variant="outline" className="mt-2 text-xs">
+                              {step.status}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 text-xs text-muted-foreground italic">
+                    * Simulated execution flow based on decision outcome
+                  </div>
+                </div>
               </div>
             </>
           )}

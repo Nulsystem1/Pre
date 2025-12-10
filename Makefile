@@ -91,6 +91,10 @@ test: ## Run end-to-end test
 	@echo "🧪 Running E2E test..."
 	bash scripts/test-all-features.sh
 
+demo: ## Add demo examples for guaranteed outcomes (APPROVED, REVIEW, BLOCKED)
+	@echo "🎯 Adding demo examples..."
+	bash scripts/add-demo-examples.sh
+
 setup: install start db-migrate ## Complete setup (install + start + migrate)
 	@echo ""
 	@echo "✅ Setup complete!"
