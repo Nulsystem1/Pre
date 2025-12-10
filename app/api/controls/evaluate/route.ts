@@ -1,4 +1,4 @@
-import { controls } from "@/lib/store"
+import { getEnabledControls } from "@/lib/supabase"
 import { matchConditions } from "@/lib/json-logic"
 import type { DecisionOutcome } from "@/lib/types"
 
@@ -10,11 +10,8 @@ export async function POST(req: Request) {
       return Response.json({ success: false, error: "Missing eventData" }, { status: 400 })
     }
 
-    // Get enabled controls (optionally filtered by pack)
-    let activeControls = controls.filter((c) => c.enabled)
-    if (policyPackId) {
-      activeControls = activeControls.filter((c) => c.policy_pack_id === policyPackId)
-    }
+    // Get enabled controls from Supabase (optionally filtered by pack)
+    const activeControls = await getEnabledControls(policyPackId)
 
     // Evaluate each control against the event data
     const results: Array<{

@@ -1,15 +1,22 @@
-import { graphNodes, graphEdges } from "@/lib/store"
+import { getGraph, getGraphNodes, getGraphEdges } from "@/lib/neo4j"
 
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url)
-  const policyPackId = searchParams.get("policyPackId")
+  try {
+    const { searchParams } = new URL(req.url)
+    const policyPackId = searchParams.get("policyPackId")
 
-  const nodes = policyPackId ? graphNodes.filter((n) => n.policy_pack_id === policyPackId) : graphNodes
+    if (!policyPackId) {
+      return Response.json({ success: false, error: "policyPackId is required" }, { status: 400 })
+    }
 
-  const edges = policyPackId ? graphEdges.filter((e) => e.policy_pack_id === policyPackId) : graphEdges
+    const graph = await getGraph(policyPackId)
 
-  return Response.json({
-    success: true,
-    data: { nodes, edges },
-  })
+    return Response.json({
+      success: true,
+      data: graph,
+    })
+  } catch (error) {
+    console.error("Get graph error:", error)
+    return Response.json({ success: false, error: "Failed to get graph" }, { status: 500 })
+  }
 }

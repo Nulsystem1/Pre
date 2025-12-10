@@ -1,4 +1,4 @@
-import { graphNodes } from "@/lib/store"
+import { createGraphNode, getSession } from "@/lib/neo4j"
 import type { GraphNode } from "@/lib/types"
 
 export async function POST(req: Request) {
@@ -15,7 +15,7 @@ export async function POST(req: Request) {
       position: nodeData.position || { x: 100, y: 100 },
     }
 
-    graphNodes.push(newNode)
+    await createGraphNode(newNode)
 
     return Response.json({ success: true, data: newNode })
   } catch (error) {
@@ -27,22 +27,44 @@ export async function POST(req: Request) {
 export async function PATCH(req: Request) {
   try {
     const { id, ...updates } = await req.json()
-    const nodeIndex = graphNodes.findIndex((n) => n.id === id)
 
-    if (nodeIndex === -1) {
-      return Response.json({ success: false, error: "Node not found" }, { status: 404 })
+    const session = getSession()
+    try {
+      // Update node in Neo4j
+      const updateFields = []
+      if (updates.position) {
+        updateFields.push("n.position_x = $position_x", "n.position_y = $position_y")
+      }
+      if (updates.label) {
+        updateFields.push("n.label = $label")
+      }
+      if (updates.properties) {
+        updateFields.push("n.properties = $properties")
+      }
+
+      if (updateFields.length === 0) {
+        return Response.json({ success: false, error: "No updates provided" }, { status: 400 })
+      }
+
+      await session.run(
+        `
+        MATCH (n:GraphNode {id: $id})
+        SET ${updateFields.join(", ")}
+        RETURN n
+        `,
+        {
+          id,
+          position_x: updates.position?.x,
+          position_y: updates.position?.y,
+          label: updates.label,
+          properties: updates.properties ? JSON.stringify(updates.properties) : undefined,
+        }
+      )
+
+      return Response.json({ success: true, data: { id, ...updates } })
+    } finally {
+      await session.close()
     }
-
-    // Update position if provided
-    if (updates.position) {
-      graphNodes[nodeIndex].position = updates.position
-    }
-
-    // Update other fields
-    if (updates.label) graphNodes[nodeIndex].label = updates.label
-    if (updates.properties) graphNodes[nodeIndex].properties = updates.properties
-
-    return Response.json({ success: true, data: graphNodes[nodeIndex] })
   } catch (error) {
     console.error("Update node error:", error)
     return Response.json({ success: false, error: "Failed to update node" }, { status: 500 })
@@ -52,15 +74,21 @@ export async function PATCH(req: Request) {
 export async function DELETE(req: Request) {
   try {
     const { id } = await req.json()
-    const nodeIndex = graphNodes.findIndex((n) => n.id === id)
 
-    if (nodeIndex === -1) {
-      return Response.json({ success: false, error: "Node not found" }, { status: 404 })
+    const session = getSession()
+    try {
+      await session.run(
+        `
+        MATCH (n:GraphNode {id: $id})
+        DETACH DELETE n
+        `,
+        { id }
+      )
+
+      return Response.json({ success: true })
+    } finally {
+      await session.close()
     }
-
-    graphNodes.splice(nodeIndex, 1)
-
-    return Response.json({ success: true })
   } catch (error) {
     console.error("Delete node error:", error)
     return Response.json({ success: false, error: "Failed to delete node" }, { status: 500 })

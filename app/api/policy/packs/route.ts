@@ -1,14 +1,30 @@
-import { policyPacks, controls } from "@/lib/store"
-import type { PolicyPack } from "@/lib/types"
+import { getPolicyPacks, createPolicyPack, supabase } from "@/lib/supabase"
 
 export async function GET() {
-  // Return policy packs with control counts
-  const packsWithCounts = policyPacks.map((pack) => ({
-    ...pack,
-    controls_count: controls.filter((c) => c.policy_pack_id === pack.id).length,
-  }))
+  try {
+    // Get policy packs from Supabase
+    const packs = await getPolicyPacks()
 
-  return Response.json({ success: true, data: packsWithCounts })
+    // Get control counts for each pack
+    const packsWithCounts = await Promise.all(
+      packs.map(async (pack) => {
+        const { count } = await supabase
+          .from("controls")
+          .select("*", { count: "exact", head: true })
+          .eq("policy_pack_id", pack.id)
+
+        return {
+          ...pack,
+          controls_count: count || 0,
+        }
+      })
+    )
+
+    return Response.json({ success: true, data: packsWithCounts })
+  } catch (error) {
+    console.error("Get packs error:", error)
+    return Response.json({ success: false, error: "Failed to get policy packs" }, { status: 500 })
+  }
 }
 
 export async function POST(req: Request) {
@@ -19,18 +35,12 @@ export async function POST(req: Request) {
       return Response.json({ success: false, error: "Name is required" }, { status: 400 })
     }
 
-    const newPack: PolicyPack = {
-      id: `pack-${Date.now()}`,
+    const newPack = await createPolicyPack({
       name,
       version: "1.0",
       status: "draft",
-      raw_content: null,
-      description: description || null,
-      created_at: new Date().toISOString(),
-      published_at: null,
-    }
-
-    policyPacks.push(newPack)
+      description: description || undefined,
+    })
 
     return Response.json({ success: true, data: newPack })
   } catch (error) {

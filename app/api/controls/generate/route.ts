@@ -1,6 +1,7 @@
 import { generateObject } from "ai"
 import { z } from "zod"
-import { policyPacks, policyChunks, graphNodes, graphEdges, controls } from "@/lib/store"
+import { getPolicyPackById, getPolicyChunks, createControls, deleteControlsByPolicyPack } from "@/lib/supabase"
+import { getGraph } from "@/lib/neo4j"
 import type { Control, JSONLogicCondition } from "@/lib/types"
 
 // Schema for generating controls from graph traversal
@@ -29,17 +30,16 @@ export async function POST(req: Request) {
     }
 
     // Get policy pack
-    const pack = policyPacks.find((p) => p.id === policyPackId)
+    const pack = await getPolicyPackById(policyPackId)
     if (!pack) {
       return Response.json({ success: false, error: "Policy pack not found" }, { status: 404 })
     }
 
-    // Get graph data for this pack
-    const nodes = graphNodes.filter((n) => n.policy_pack_id === policyPackId)
-    const edges = graphEdges.filter((e) => e.policy_pack_id === policyPackId)
+    // Get graph data from Neo4j
+    const { nodes, edges } = await getGraph(policyPackId)
 
-    // Get policy chunks for context
-    const chunks = policyChunks.filter((c) => c.policy_pack_id === policyPackId)
+    // Get policy chunks from Supabase
+    const chunks = await getPolicyChunks(policyPackId)
 
     // Build graph context for LLM
     const graphContext = nodes
@@ -117,8 +117,7 @@ Use control IDs that match the policy pack type (e.g., KYC-001, AML-001, SANCT-0
     })
 
     // Map generated controls to our format
-    const newControls: Control[] = result.object.controls.map((ctrl, i) => ({
-      id: `ctrl-${policyPackId}-${Date.now()}-${i}`,
+    const controlsToCreate = result.object.controls.map((ctrl) => ({
       policy_pack_id: policyPackId,
       control_id: ctrl.control_id,
       name: ctrl.name,
@@ -130,18 +129,13 @@ Use control IDs that match the policy pack type (e.g., KYC-001, AML-001, SANCT-0
       enabled: true,
       source_node_ids: nodes.filter((n) => ctrl.source_node_labels.includes(n.label)).map((n) => n.id),
       ai_reasoning: ctrl.ai_reasoning,
-      created_at: new Date().toISOString(),
     }))
 
-    // Remove old controls for this pack
-    const existingControlIndices = controls
-      .map((c, i) => (c.policy_pack_id === policyPackId ? i : -1))
-      .filter((i) => i >= 0)
-      .reverse()
-    existingControlIndices.forEach((i) => controls.splice(i, 1))
+    // Remove old controls for this pack from Supabase
+    await deleteControlsByPolicyPack(policyPackId)
 
-    // Add new controls
-    controls.push(...newControls)
+    // Add new controls to Supabase
+    const newControls = await createControls(controlsToCreate)
 
     return Response.json({
       success: true,

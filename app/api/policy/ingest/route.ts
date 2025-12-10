@@ -1,6 +1,8 @@
 import { generateObject } from "ai"
 import { z } from "zod"
-import { policyPacks, policyChunks, graphNodes, graphEdges } from "@/lib/store"
+import { updatePolicyPack, createPolicyChunks, getPolicyPackById } from "@/lib/supabase"
+import { createGraphNodes, createGraphEdges, deleteGraphByPolicyPack } from "@/lib/neo4j"
+import { generateEmbeddings } from "@/lib/embeddings"
 import type { GraphNode, GraphEdge, PolicyChunk } from "@/lib/types"
 
 // Schema for extracting policy chunks
@@ -53,11 +55,11 @@ export async function POST(req: Request) {
     }
 
     // Update policy pack with raw content
-    const packIndex = policyPacks.findIndex((p) => p.id === policyPackId)
-    if (packIndex === -1) {
+    const pack = await getPolicyPackById(policyPackId)
+    if (!pack) {
       return Response.json({ success: false, error: "Policy pack not found" }, { status: 404 })
     }
-    policyPacks[packIndex].raw_content = policyText
+    await updatePolicyPack(policyPackId, { raw_content: policyText })
 
     // Step 1: Extract chunks using AI (Linear RAG preparation)
     const chunksResult = await generateObject({
@@ -73,26 +75,24 @@ Extract each distinct rule or requirement as a separate chunk with its section r
       maxOutputTokens: 4000,
     })
 
-    // Store chunks
-    const newChunks: PolicyChunk[] = chunksResult.object.chunks.map((chunk, i) => ({
-      id: `chunk-${policyPackId}-${i}`,
-      policy_pack_id: policyPackId,
-      content: chunk.content,
-      section_ref: chunk.section_ref,
-      embedding: null, // Would be generated via embedding API in production
-      metadata: {
-        priority: chunk.priority,
-        action_type: chunk.action_type,
-      },
-    }))
+    // Generate embeddings for chunks
+    const chunksWithEmbeddings = await generateEmbeddings(
+      chunksResult.object.chunks.map((c) => c.content)
+    )
 
-    // Remove old chunks for this pack and add new ones
-    const existingChunkIndices = policyChunks
-      .map((c, i) => (c.policy_pack_id === policyPackId ? i : -1))
-      .filter((i) => i >= 0)
-      .reverse()
-    existingChunkIndices.forEach((i) => policyChunks.splice(i, 1))
-    policyChunks.push(...newChunks)
+    // Store chunks in Supabase
+    const newChunks = await createPolicyChunks(
+      chunksResult.object.chunks.map((chunk, i) => ({
+        policy_pack_id: policyPackId,
+        content: chunk.content,
+        section_ref: chunk.section_ref,
+        embedding: chunksWithEmbeddings[i],
+        metadata: {
+          priority: chunk.priority,
+          action_type: chunk.action_type,
+        },
+      }))
+    )
 
     // Step 2: Extract graph entities and relationships (Graph RAG)
     const graphResult = await generateObject({
@@ -126,7 +126,7 @@ Extract all entities and their relationships. Be thorough - capture all threshol
 
     // Store graph nodes with positions
     const newNodes: GraphNode[] = graphResult.object.nodes.map((node, i) => ({
-      id: `node-${policyPackId}-${i}`,
+      id: `node-${policyPackId}-${Date.now()}-${i}`,
       policy_pack_id: policyPackId,
       node_type: node.node_type,
       label: node.label,
@@ -140,27 +140,19 @@ Extract all entities and their relationships. Be thorough - capture all threshol
 
     // Store graph edges
     const newEdges: GraphEdge[] = graphResult.object.edges.map((edge, i) => ({
-      id: `edge-${policyPackId}-${i}`,
+      id: `edge-${policyPackId}-${Date.now()}-${i}`,
       policy_pack_id: policyPackId,
       source_node_id: newNodes[edge.source_index]?.id || "",
       target_node_id: newNodes[edge.target_index]?.id || "",
       relationship: edge.relationship,
     }))
 
-    // Remove old graph data for this pack
-    const existingNodeIndices = graphNodes
-      .map((n, i) => (n.policy_pack_id === policyPackId ? i : -1))
-      .filter((i) => i >= 0)
-      .reverse()
-    existingNodeIndices.forEach((i) => graphNodes.splice(i, 1))
-    graphNodes.push(...newNodes)
+    // Delete old graph data for this pack in Neo4j
+    await deleteGraphByPolicyPack(policyPackId)
 
-    const existingEdgeIndices = graphEdges
-      .map((e, i) => (e.policy_pack_id === policyPackId ? i : -1))
-      .filter((i) => i >= 0)
-      .reverse()
-    existingEdgeIndices.forEach((i) => graphEdges.splice(i, 1))
-    graphEdges.push(...newEdges)
+    // Create new nodes and edges in Neo4j
+    await createGraphNodes(newNodes)
+    await createGraphEdges(newEdges)
 
     return Response.json({
       success: true,
