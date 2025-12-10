@@ -207,7 +207,7 @@ export function ReviewQueue() {
               {selectedItem.reasoning && (
                 <div>
                   <Label className="text-muted-foreground">AI Reasoning</Label>
-                  <p className="text-sm bg-slate-50 p-3 rounded-md mt-1">
+                  <p className="text-sm bg-muted/50 rounded-lg p-4 mt-1">
                     {selectedItem.reasoning}
                   </p>
                 </div>
