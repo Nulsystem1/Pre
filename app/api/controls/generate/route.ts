@@ -73,9 +73,12 @@ ${incoming ? `Incoming:\n${incoming}` : ""}`
 
     // Generate controls using AI with graph context
     const result = await generateStructuredOutput({
-      model: "gpt-4o",
+      model: "gpt-5.1-2025-11-13",
       schema: controlsSchema,
-      prompt: `You are a compliance control engineer. Generate executable JSON Logic controls from the following policy knowledge graph.
+      maxTokens: 16000,
+      prompt: `You are a compliance control engineer. Generate 10-20 executable JSON Logic controls from the following policy knowledge graph.
+
+Focus on the most important rules from the graph.
 
 POLICY KNOWLEDGE GRAPH:
 ${graphContext}

@@ -29,7 +29,7 @@ export async function POST(req: Request) {
 
     // Use AI to answer based on RAG context
     const text = await generateText({
-      model: "gpt-4o",
+      model: "gpt-5.1-2025-11-13",
       prompt: `You are a compliance policy expert. Answer the following question based ONLY on the provided policy context.
 
 POLICY CHUNKS:

@@ -53,7 +53,7 @@ function makeSchemaStrict(schema: any): any {
  * Generate structured output from OpenAI using JSON Schema
  */
 export async function generateStructuredOutput<T extends z.ZodTypeAny>({
-  model = "gpt-4o",
+  model = "gpt-5.1-2025-11-13",
   schema,
   prompt,
   maxTokens = 4000,
@@ -63,21 +63,23 @@ export async function generateStructuredOutput<T extends z.ZodTypeAny>({
   prompt: string
   maxTokens?: number
 }): Promise<z.infer<T>> {
-  // Convert Zod schema to JSON Schema
-  let jsonSchema = zodToJsonSchema(schema, {
+  // Convert Zod schema to JSON Schema for reference in prompt
+  const jsonSchema = zodToJsonSchema(schema, {
     target: "openApi3",
     $refStrategy: "none",
   }) as any
-
-  // Make schema strict for OpenAI
-  jsonSchema = makeSchemaStrict(jsonSchema)
 
   const response = await openai.chat.completions.create({
     model,
     messages: [
       {
         role: "system",
-        content: "You are a helpful assistant that returns valid JSON matching the provided schema.",
+        content: `You are a helpful assistant that returns valid JSON matching the provided schema. 
+        
+Schema:
+${JSON.stringify(jsonSchema, null, 2)}
+
+Return ONLY valid JSON that conforms to this schema. Do not include any markdown formatting or additional text.`,
       },
       {
         role: "user",
@@ -85,33 +87,41 @@ export async function generateStructuredOutput<T extends z.ZodTypeAny>({
       },
     ],
     response_format: {
-      type: "json_schema",
-      json_schema: {
-        name: "response",
-        description: "Structured response matching the schema",
-        schema: jsonSchema,
-        strict: true,
-      },
+      type: "json_object",
     },
-    max_tokens: maxTokens,
+    max_completion_tokens: maxTokens,
     temperature: 0.3,
   })
 
   const content = response.choices[0]?.message?.content
   if (!content) {
-    throw new Error("No content in OpenAI response")
+    console.error("No content in response!")
+    console.error("Finish reason:", response.choices[0]?.finish_reason)
+    console.error("Refusal:", response.choices[0]?.message?.refusal)
+    console.error("Usage:", response.usage)
+    throw new Error(`No content in OpenAI response. Finish reason: ${response.choices[0]?.finish_reason}`)
   }
 
   // Parse and validate the response
-  const parsed = JSON.parse(content)
-  return schema.parse(parsed)
+  try {
+    const parsed = JSON.parse(content)
+    return schema.parse(parsed)
+  } catch (error) {
+    console.error("Failed to parse/validate OpenAI response:")
+    console.error("Content preview:", content.substring(0, 1000))
+    if (error instanceof Error) {
+      console.error("Error:", error.message)
+    }
+    console.error("Full error:", error)
+    throw new Error(`OpenAI response validation failed: ${error instanceof Error ? error.message : String(error)}`)
+  }
 }
 
 /**
  * Generate text from OpenAI
  */
 export async function generateText({
-  model = "gpt-4o",
+  model = "gpt-5.1-2025-11-13",
   prompt,
   maxTokens = 1000,
   temperature = 0.7,
@@ -129,7 +139,7 @@ export async function generateText({
         content: prompt,
       },
     ],
-    max_tokens: maxTokens,
+    max_completion_tokens: maxTokens,
     temperature,
   })
 

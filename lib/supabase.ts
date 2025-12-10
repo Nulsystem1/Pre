@@ -254,13 +254,16 @@ export async function updatePolicyPack(id: string, updates: Record<string, unkno
   return data
 }
 
-export async function getPolicyChunks(policyPackId: string) {
-  const result = await supabase
-    .from("policy_chunks")
-    .select("*")
-    .eq("policy_pack_id", policyPackId)
-  
-  const { data, error } = await Promise.resolve(result)
+export async function getPolicyChunks(policyPackId?: string) {
+  let sql = "SELECT * FROM policy_chunks"
+  const params: unknown[] = []
+
+  if (policyPackId) {
+    sql += " WHERE policy_pack_id = $1"
+    params.push(policyPackId)
+  }
+
+  const { data, error } = await query(sql, params)
   if (error) throw error
   return data || []
 }

@@ -17,8 +17,8 @@ const chunksSchema = z.object({
   ),
 })
 
-// Schema for extracting graph entities and relationships
-const graphSchema = z.object({
+// Schema for extracting graph nodes (Step 1)
+const nodesSchema = z.object({
   nodes: z.array(
     z.object({
       node_type: z
@@ -37,6 +37,10 @@ const graphSchema = z.object({
       source_text: z.string().describe("Original policy text this node was extracted from"),
     }),
   ),
+})
+
+// Schema for extracting edges (Step 2)
+const edgesSchema = z.object({
   edges: z.array(
     z.object({
       source_index: z.number().describe("Index of source node in nodes array"),
@@ -63,7 +67,7 @@ export async function POST(req: Request) {
 
     // Step 1: Extract chunks using AI (Linear RAG preparation)
     const chunksResult = await generateStructuredOutput({
-      model: "gpt-4o",
+      model: "gpt-5.1-2025-11-13",
       schema: chunksSchema,
       prompt: `You are a compliance policy analyst. Extract structured chunks from the following policy document.
 Each chunk should represent a single policy requirement or rule that could be turned into a control.
@@ -94,35 +98,55 @@ Extract each distinct rule or requirement as a separate chunk with its section r
       }))
     )
 
-    // Step 2: Extract graph entities and relationships (Graph RAG)
-    const graphResult = await generateStructuredOutput({
-      model: "gpt-4o",
-      schema: graphSchema,
-      prompt: `You are a compliance policy analyst building a knowledge graph. Extract entities and relationships from the following policy document.
+    // Step 2a: Extract graph nodes first (simpler, more reliable)
+    const nodesResult = await generateStructuredOutput({
+      model: "gpt-5.1-2025-11-13",
+      schema: nodesSchema,
+      maxTokens: 4000,
+      prompt: `You are a compliance policy analyst. Extract key entities from this policy document.
 
-Entity types:
-- threshold: Numeric thresholds (e.g., "risk score > 50", "age < 18", "amount > 10000")
-- entity_type: Types of entities being monitored (e.g., "PEP", "sanctioned entity", "business account")
-- action: Actions to take (e.g., "block", "review", "escalate", "request documentation")
-- condition: Boolean conditions (e.g., "ID not verified", "address not verified")
-- risk_factor: Risk indicators (e.g., "high-risk country", "unusual transaction pattern")
-- document_type: Required documents (e.g., "proof of address", "source of funds")
-- jurisdiction: Geographic/regulatory jurisdictions
-
-Relationships:
-- TRIGGERS: Condition/threshold leads to an action
-- CASCADES_TO: One condition leads to another check
-- REQUIRES: An entity/condition requires specific documentation
-- OVERRIDES: One rule overrides another
-- APPLIES_TO: A rule applies to specific entity types
-- EXEMPTS: A condition exempts from certain rules
+Focus on identifying:
+1. **Thresholds**: Numeric rules (e.g., "amount > $100,000", "risk score > 50")
+2. **Conditions**: Requirements or checks (e.g., "ID verified", "sanctions check clear", "business exists")
+3. **Actions**: Outcomes (e.g., "BLOCK", "REVIEW", "APPROVE")
+4. **Entity types**: Types of subjects (e.g., "vendor", "PEP", "sanctioned entity")
+5. **Risk factors**: Risk indicators (e.g., "high-risk country", "adverse media")
+6. **Document types**: Required documents (e.g., "W-9 form", "insurance certificate")
+7. **Jurisdictions**: Geographic areas (e.g., "domestic", "international", "embargoed country")
 
 Policy Document:
 ${policyText}
 
-Extract all entities and their relationships. Be thorough - capture all thresholds, conditions, and actions mentioned.`,
-      maxTokens: 4000,
+Extract 15-25 of the most important entities. Each node should be distinct and actionable.`,
     })
+
+    // Step 2b: Extract relationships between the nodes
+    const edgesResult = await generateStructuredOutput({
+      model: "gpt-5.1-2025-11-13",
+      schema: edgesSchema,
+      maxTokens: 2000,
+      prompt: `Given these nodes extracted from a compliance policy, identify relationships between them.
+
+Nodes:
+${nodesResult.nodes.map((n, i) => `${i}. [${n.node_type}] ${n.label}`).join('\n')}
+
+Relationship types:
+- TRIGGERS: A condition/threshold triggers an action
+- CASCADES_TO: One check leads to another check
+- REQUIRES: An action/entity requires documentation
+- OVERRIDES: One rule overrides another
+- APPLIES_TO: A rule applies to specific entity types
+- EXEMPTS: A condition exempts from rules
+
+Identify 10-20 key relationships. Use node indices (0-${nodesResult.nodes.length - 1}) for source_index and target_index.
+
+Example: If node 5 "amount > $100k" TRIGGERS node 12 "BLOCK", create: {source_index: 5, target_index: 12, relationship: "TRIGGERS"}`,
+    })
+
+    const graphResult = {
+      nodes: nodesResult.nodes,
+      edges: edgesResult.edges,
+    }
 
     // Store graph nodes with positions
     const newNodes: GraphNode[] = graphResult.nodes.map((node, i) => ({
