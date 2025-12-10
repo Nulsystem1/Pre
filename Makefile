@@ -53,24 +53,27 @@ reset: ## DANGER: Full reset - deletes ALL data and restarts fresh
 	@echo "⏳ Waiting for services..."
 	@sleep 8
 	@echo "📊 Initializing database schema..."
-	docker exec nul-postgres psql -U postgres -d postgres -f /docker-entrypoint-initdb.d/001-create-tables.sql
+	@docker exec nul-postgres sh -c "for f in \$$(ls /docker-entrypoint-initdb.d/*.sql | sort); do echo \"Running \$$(basename \$$f)...\"; psql -U postgres -d postgres -f \$$f; done"
+	docker exec nul-postgres psql -U postgres -d postgres -c "ALTER TABLE events DROP CONSTRAINT IF EXISTS events_event_type_check;"
 	@echo "🔗 Initializing Neo4j constraints..."
 	docker cp scripts/neo4j-init.cypher nul-neo4j:/tmp/init.cypher
-	docker exec nul-neo4j cypher-shell -u neo4j -p compliance123 -f /tmp/init.cypher || true
+	docker exec nul-neo4j cypher-shell -u neo4j -p neo4jpassword -f /tmp/init.cypher || true
 	@echo "✅ Full reset complete! Ready for fresh start."
 
 db-reset: ## Reset database only (keep Docker running)
 	@echo "🗑️  Resetting database..."
 	docker exec nul-postgres psql -U postgres -d postgres -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
-	docker exec nul-postgres psql -U postgres -d postgres -f /docker-entrypoint-initdb.d/001-create-tables.sql
-	docker exec nul-neo4j cypher-shell -u neo4j -p compliance123 "MATCH (n) DETACH DELETE n" || true
+	@echo "📊 Running all migrations..."
+	@docker exec nul-postgres sh -c "for f in \$$(ls /docker-entrypoint-initdb.d/*.sql | sort); do echo \"Running \$$(basename \$$f)...\"; psql -U postgres -d postgres -f \$$f; done"
+	docker exec nul-postgres psql -U postgres -d postgres -c "ALTER TABLE events DROP CONSTRAINT IF EXISTS events_event_type_check;"
+	docker exec nul-neo4j cypher-shell -u neo4j -p neo4jpassword "MATCH (n) DETACH DELETE n" || true
 	docker cp scripts/neo4j-init.cypher nul-neo4j:/tmp/init.cypher
-	docker exec nul-neo4j cypher-shell -u neo4j -p compliance123 -f /tmp/init.cypher || true
+	docker exec nul-neo4j cypher-shell -u neo4j -p neo4jpassword -f /tmp/init.cypher || true
 	@echo "✅ Database reset complete!"
 
 db-migrate: ## Run database migrations
-	@echo "📊 Running migrations..."
-	docker exec nul-postgres psql -U postgres -d postgres -f /docker-entrypoint-initdb.d/001-create-tables.sql
+	@echo "📊 Running all migrations..."
+	@docker exec nul-postgres sh -c "for f in \$$(ls /docker-entrypoint-initdb.d/*.sql | sort); do echo \"Running \$$(basename \$$f)...\"; psql -U postgres -d postgres -f \$$f; done"
 	docker exec nul-postgres psql -U postgres -d postgres -c "ALTER TABLE events DROP CONSTRAINT IF EXISTS events_event_type_check;"
 	@echo "✅ Migrations complete!"
 
