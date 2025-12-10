@@ -100,7 +100,11 @@ export default function CommandCenterPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
+              {stats.processing_count > 0 ? (
+                <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
+              ) : (
+                <Loader2 className="h-4 w-4 text-muted-foreground" />
+              )}
               Processing
             </CardTitle>
           </CardHeader>

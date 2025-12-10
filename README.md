@@ -1,30 +1,55 @@
 # NUL Compliance Control Center
 
-*Automatically synced with your [v0.app](https://v0.app) deployments*
+AI-powered compliance automation platform that converts policy documents into executable controls.
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/munim-2789s-projects/v0-nul-compliance-control-center)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.app-black?style=for-the-badge)](https://v0.app/chat/kP8N0GkhSsH)
+## 🚀 Quick Start
 
-## Overview
+```bash
+make setup    # Complete setup
+make dev      # Start development
+```
 
-This repository will stay in sync with your deployed chats on [v0.app](https://v0.app).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.app](https://v0.app).
+Visit: http://localhost:3001
 
-## Deployment
+**See [QUICKSTART.md](QUICKSTART.md) for detailed instructions**
 
-Your project is live at:
+## 📋 Make Commands
 
-**[https://vercel.com/munim-2789s-projects/v0-nul-compliance-control-center](https://vercel.com/munim-2789s-projects/v0-nul-compliance-control-center)**
+```bash
+make help         # Show all commands
+make reset        # Full reset (deletes all data)
+make db-status    # Check database
+make test         # Run tests
+```
 
-## Build your app
+## 🌐 Architecture
 
-Continue building your app on:
+- **Frontend**: Next.js 16 + React 19 + TypeScript
+- **Database**: PostgreSQL (pgvector) + Neo4j
+- **AI**: OpenAI GPT-4 for agentic decisions
+- **RAG**: Dual approach (Linear + Graph)
 
-**[https://v0.app/chat/kP8N0GkhSsH](https://v0.app/chat/kP8N0GkhSsH)**
+## 📊 Features
 
-## How It Works
+- ✅ Agentic real-time decision making
+- ✅ Confidence-based routing to human review
+- ✅ Visual policy graph
+- ✅ Complete audit trail
+- ✅ Manual entry with AI autofill
 
-1. Create and modify your project using [v0.app](https://v0.app)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+## 📖 Documentation
+
+- [Quick Start Guide](QUICKSTART.md)
+- [Infrastructure Setup](INFRASTRUCTURE.md)
+- [Agent Architecture](AGENTS.md)
+- [Demo Guide](DEMO-GUIDE.md)
+
+## 🛠️ Tech Stack
+
+- Next.js, TypeScript, Tailwind CSS, Shadcn UI
+- PostgreSQL, Neo4j, OpenAI
+- Docker Compose
+
+---
+
+**Starting from scratch?** → `make reset && make setup && make dev`

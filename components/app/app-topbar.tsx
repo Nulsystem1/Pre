@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { useState } from "react"
 
 const banks = [
-  { id: "mercury", name: "Mercury Digital Bank", env: "Production" },
+  { id: "mercury", name: "NUL Systems", env: "Production" },
   { id: "nova", name: "Nova Financial", env: "Sandbox" },
   { id: "apex", name: "Apex Credit Union", env: "Production" },
 ]
