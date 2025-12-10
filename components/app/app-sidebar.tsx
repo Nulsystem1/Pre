@@ -13,6 +13,7 @@ import {
   ChevronRight,
   CheckSquare,
   Zap,
+  Workflow,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useState } from "react"
@@ -21,6 +22,7 @@ const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Command Center", href: "/command-center", icon: Zap },
   { name: "Policy Studio", href: "/policy-studio", icon: FileCode2 },
+  { name: "Agent Builder", href: "/agent-builder", icon: Workflow },
   { name: "Review Queue", href: "/review-queue", icon: CheckSquare },
   { name: "Audit Explorer", href: "/audit-explorer", icon: Search },
   { name: "Settings", href: "/settings", icon: Settings },
