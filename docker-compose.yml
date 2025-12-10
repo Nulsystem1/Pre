@@ -1,9 +1,7 @@
-version: '3.8'
-
 services:
-  # PostgreSQL with pgvector extension (Supabase backend)
+  # PostgreSQL with pgvector extension
   postgres:
-    image: supabase/postgres:15.6.1.147
+    image: pgvector/pgvector:pg16
     container_name: nul-postgres
     environment:
       POSTGRES_DB: postgres
@@ -23,7 +21,7 @@ services:
 
   # PostgREST - REST API for Postgres
   postgrest:
-    image: postgrest/postgrest:v12.0.2
+    image: postgrest/postgrest:v12.2.2
     container_name: nul-postgrest
     environment:
       PGRST_DB_URI: postgres://postgres:postgres@postgres:5432/postgres
