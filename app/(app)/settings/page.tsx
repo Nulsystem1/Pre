@@ -18,17 +18,25 @@ export default function SettingsPage() {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("nul_profile")
       return stored ? JSON.parse(stored) : {
-        name: "John Doe",
-        email: "john.doe@company.com",
-        role: "Compliance Officer",
-        organization: "Acme Corp",
+        name: "Sarah Chen",
+        email: "sarah.chen@nulcompliance.io",
+        role: "Senior Compliance Officer",
+        organization: "NUL Financial Services",
+        department: "Risk & Compliance",
+        phone: "+1 (555) 123-4567",
+        timezone: "America/New_York",
+        language: "English",
       }
     }
     return {
-      name: "John Doe",
-      email: "john.doe@company.com",
-      role: "Compliance Officer",
-      organization: "Acme Corp",
+      name: "Sarah Chen",
+      email: "sarah.chen@nulcompliance.io",
+      role: "Senior Compliance Officer",
+      organization: "NUL Financial Services",
+      department: "Risk & Compliance",
+      phone: "+1 (555) 123-4567",
+      timezone: "America/New_York",
+      language: "English",
     }
   })
 
@@ -84,10 +92,21 @@ export default function SettingsPage() {
         <TabsContent value="profile" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Profile Information</CardTitle>
-              <CardDescription>Update your personal information and organization details</CardDescription>
+              <CardTitle>Personal Information</CardTitle>
+              <CardDescription>Manage your profile and contact details</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6">
+              <div className="flex items-center gap-6">
+                <div className="h-24 w-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-3xl font-bold">
+                  {profile.name.split(" ").map(n => n[0]).join("")}
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">{profile.name}</h3>
+                  <p className="text-sm text-muted-foreground">{profile.role}</p>
+                  <p className="text-xs text-muted-foreground">{profile.organization}</p>
+                </div>
+              </div>
+
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="name">Full Name</Label>
@@ -99,7 +118,7 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email">Email Address</Label>
                   <Input
                     id="email"
                     type="email"
@@ -109,14 +128,41 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="role">Role</Label>
+                  <Label htmlFor="phone">Phone Number</Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    value={profile.phone}
+                    onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="role">Job Title</Label>
                   <Input
                     id="role"
                     value={profile.role}
                     onChange={(e) => setProfile({ ...profile, role: e.target.value })}
                   />
                 </div>
+              </div>
 
+              <div className="flex justify-end">
+                <Button onClick={handleSaveProfile}>
+                  <Save className="h-4 w-4 mr-2" />
+                  {saved ? "Saved!" : "Save Changes"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Organization Details</CardTitle>
+              <CardDescription>Your company and department information</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="organization">Organization</Label>
                   <Input
@@ -125,12 +171,56 @@ export default function SettingsPage() {
                     onChange={(e) => setProfile({ ...profile, organization: e.target.value })}
                   />
                 </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="department">Department</Label>
+                  <Input
+                    id="department"
+                    value={profile.department}
+                    onChange={(e) => setProfile({ ...profile, department: e.target.value })}
+                  />
+                </div>
               </div>
 
               <div className="flex justify-end">
-                <Button onClick={handleSaveProfile}>
+                <Button onClick={handleSaveProfile} variant="outline">
                   <Save className="h-4 w-4 mr-2" />
-                  {saved ? "Saved!" : "Save Profile"}
+                  Update Organization
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Preferences</CardTitle>
+              <CardDescription>Customize your experience</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="timezone">Timezone</Label>
+                  <Input
+                    id="timezone"
+                    value={profile.timezone}
+                    onChange={(e) => setProfile({ ...profile, timezone: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="language">Language</Label>
+                  <Input
+                    id="language"
+                    value={profile.language}
+                    onChange={(e) => setProfile({ ...profile, language: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <Button onClick={handleSaveProfile} variant="outline">
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Preferences
                 </Button>
               </div>
             </CardContent>
