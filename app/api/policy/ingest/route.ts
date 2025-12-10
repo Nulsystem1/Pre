@@ -63,7 +63,7 @@ export async function POST(req: Request) {
 
     // Step 1: Extract chunks using AI (Linear RAG preparation)
     const chunksResult = await generateObject({
-      model: "anthropic/claude-sonnet-4-20250514",
+      model: "openai/gpt-4o",
       schema: chunksSchema,
       prompt: `You are a compliance policy analyst. Extract structured chunks from the following policy document.
 Each chunk should represent a single policy requirement or rule that could be turned into a control.
@@ -96,7 +96,7 @@ Extract each distinct rule or requirement as a separate chunk with its section r
 
     // Step 2: Extract graph entities and relationships (Graph RAG)
     const graphResult = await generateObject({
-      model: "anthropic/claude-sonnet-4-20250514",
+      model: "openai/gpt-4o",
       schema: graphSchema,
       prompt: `You are a compliance policy analyst building a knowledge graph. Extract entities and relationships from the following policy document.
 

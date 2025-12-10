@@ -73,7 +73,7 @@ ${incoming ? `Incoming:\n${incoming}` : ""}`
 
     // Generate controls using AI with graph context
     const result = await generateObject({
-      model: "anthropic/claude-sonnet-4-20250514",
+      model: "openai/gpt-4o",
       schema: controlsSchema,
       prompt: `You are a compliance control engineer. Generate executable JSON Logic controls from the following policy knowledge graph.
 

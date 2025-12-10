@@ -66,6 +66,23 @@ export interface PolicyGraph {
 }
 
 // ============================================
+// Execution Target Types
+// ============================================
+
+export type ExecutionTargetType = "Task" | "Webhook" | "AgentStub"
+
+export interface ExecutionTarget {
+  id: string
+  name: string
+  type: ExecutionTargetType
+  description: string | null
+  integration_label: string | null
+  config: Record<string, unknown>
+  enabled: boolean
+  created_at: string
+}
+
+// ============================================
 // Control Types (JSON Logic based)
 // ============================================
 
@@ -96,6 +113,8 @@ export interface Control {
   action: ControlAction
   risk_weight: number
   enabled: boolean
+  execution_target_id: string | null
+  confidence_threshold: number
   source_node_ids: string[]
   ai_reasoning: string | null
   created_at: string
@@ -196,6 +215,48 @@ export interface Case {
 }
 
 // ============================================
+// Review Item Types
+// ============================================
+
+export type ReviewItemStatus = "pending" | "approved" | "overridden" | "escalated"
+export type ReviewerAction = "approve" | "override" | "escalate" | null
+
+export interface ReviewItem {
+  id: string
+  decision_id: string
+  event_id: string
+  control_id: string | null
+  entity_id: string
+  entity_name: string | null
+  confidence_score: number
+  recommended_action: string
+  reasoning: string | null
+  status: ReviewItemStatus
+  reviewer_action: ReviewerAction
+  reviewer_notes: string | null
+  reviewed_by: string | null
+  created_at: string
+  reviewed_at: string | null
+}
+
+// ============================================
+// Audit Event Types
+// ============================================
+
+export interface AuditEvent {
+  id: string
+  timestamp: string
+  event_type: string
+  description: string
+  actor: string | null
+  document_id: string | null
+  rule_id: string | null
+  review_item_id: string | null
+  decision_id: string | null
+  metadata: Record<string, unknown>
+}
+
+// ============================================
 // API Response Types
 // ============================================
 
@@ -221,6 +282,10 @@ export interface EventSimulationResult {
   event: Event
   decisions: Decision[]
   final_outcome: DecisionOutcome
+  confidence_score: number
+  routing: "auto_execute" | "human_review"
+  execution_payload?: Record<string, unknown>
+  review_item_id?: string
   case_created: boolean
   case_id?: string
 }

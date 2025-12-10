@@ -1,47 +1,40 @@
-import { Users, ArrowUpRight, ArrowDownRight, CheckCircle, AlertTriangle, Briefcase } from "lucide-react"
+import { FileText, ArrowUpRight, ArrowDownRight, CheckCircle, AlertTriangle, Gauge } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 
 const metrics = [
   {
-    label: "Customers monitored",
-    value: "124,847",
-    change: "+2.3%",
-    changeType: "positive" as const,
-    icon: Users,
+    label: "Policy Documents",
+    value: "0",
+    change: "+0",
+    changeType: "neutral" as const,
+    icon: FileText,
   },
   {
-    label: "Transactions today",
-    value: "8,294",
-    change: "+12.5%",
-    changeType: "positive" as const,
-    icon: ArrowUpRight,
+    label: "Active Rules",
+    value: "0",
+    change: "+0",
+    changeType: "neutral" as const,
+    icon: Gauge,
   },
   {
-    label: "Auto approvals",
-    value: "94.2%",
-    change: "+1.1%",
-    changeType: "positive" as const,
+    label: "Auto-Execute Rate",
+    value: "0%",
+    change: "+0%",
+    changeType: "neutral" as const,
     icon: CheckCircle,
   },
   {
-    label: "Reviews needed",
-    value: "23",
-    change: "-8.0%",
-    changeType: "positive" as const,
-    icon: AlertTriangle,
-  },
-  {
-    label: "Cases open",
-    value: "47",
-    change: "+3",
+    label: "Pending Reviews",
+    value: "0",
+    change: "+0",
     changeType: "neutral" as const,
-    icon: Briefcase,
+    icon: AlertTriangle,
   },
 ]
 
 export function DashboardMetrics() {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {metrics.map((metric) => (
         <Card key={metric.label} className="bg-card">
           <CardContent className="p-4">
@@ -51,13 +44,13 @@ export function DashboardMetrics() {
               </div>
               <span
                 className={`flex items-center gap-1 text-xs font-medium ${
-                  metric.changeType === "positive" ? "text-primary" : "text-muted-foreground"
+                  metric.changeType === "positive" ? "text-green-600" : "text-muted-foreground"
                 }`}
               >
                 {metric.change}
                 {metric.changeType === "positive" ? (
                   <ArrowUpRight className="h-3 w-3" />
-                ) : (
+                ) : metric.changeType === "neutral" ? null : (
                   <ArrowDownRight className="h-3 w-3" />
                 )}
               </span>

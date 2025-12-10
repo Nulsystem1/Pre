@@ -13,16 +13,23 @@ import {
   Shield,
   ChevronLeft,
   ChevronRight,
+  FileText,
+  Play,
+  CheckSquare,
+  FileSearch,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useState } from "react"
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Documents", href: "/documents", icon: FileText },
+  { name: "Event Simulator", href: "/event-simulator", icon: Play },
+  { name: "Review Queue", href: "/review-queue", icon: CheckSquare },
+  { name: "Audit Log", href: "/audit-log", icon: FileSearch },
   { name: "Policy Studio", href: "/policy-studio", icon: FileCode2 },
   { name: "Live Controls", href: "/live-controls", icon: Activity },
   { name: "Cases", href: "/cases", icon: Briefcase },
-  { name: "Audit Explorer", href: "/audit-explorer", icon: Search },
   { name: "Integrations", href: "/integrations", icon: Plug },
   { name: "Settings", href: "/settings", icon: Settings },
 ]

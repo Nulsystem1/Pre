@@ -37,6 +37,22 @@ CREATE INDEX IF NOT EXISTS idx_policy_chunks_policy_pack ON policy_chunks(policy
 CREATE INDEX IF NOT EXISTS idx_policy_chunks_embedding ON policy_chunks USING ivfflat (embedding vector_cosine_ops);
 
 -- ============================================
+-- Execution Targets Table
+-- ============================================
+CREATE TABLE IF NOT EXISTS execution_targets (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL UNIQUE,
+  type TEXT NOT NULL CHECK (type IN ('Task', 'Webhook', 'AgentStub')),
+  description TEXT,
+  integration_label TEXT,
+  config JSONB DEFAULT '{}',
+  enabled BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_execution_targets_enabled ON execution_targets(enabled);
+
+-- ============================================
 -- Controls Table
 -- ============================================
 CREATE TABLE IF NOT EXISTS controls (
@@ -50,6 +66,8 @@ CREATE TABLE IF NOT EXISTS controls (
   action TEXT NOT NULL CHECK (action IN ('APPROVE', 'REVIEW', 'BLOCK')),
   risk_weight NUMERIC DEFAULT 1.0,
   enabled BOOLEAN DEFAULT true,
+  execution_target_id UUID REFERENCES execution_targets(id) ON DELETE SET NULL,
+  confidence_threshold NUMERIC DEFAULT 0.8,
   source_node_ids TEXT[] DEFAULT '{}',
   ai_reasoning TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -59,6 +77,7 @@ CREATE TABLE IF NOT EXISTS controls (
 
 CREATE INDEX IF NOT EXISTS idx_controls_policy_pack ON controls(policy_pack_id);
 CREATE INDEX IF NOT EXISTS idx_controls_enabled ON controls(enabled);
+CREATE INDEX IF NOT EXISTS idx_controls_execution_target ON controls(execution_target_id);
 
 -- ============================================
 -- Events Table
@@ -129,6 +148,52 @@ CREATE TABLE IF NOT EXISTS cases (
 
 CREATE INDEX IF NOT EXISTS idx_cases_status ON cases(status);
 CREATE INDEX IF NOT EXISTS idx_cases_customer ON cases(customer_id);
+
+-- ============================================
+-- Review Items Table (for low-confidence decisions)
+-- ============================================
+CREATE TABLE IF NOT EXISTS review_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  decision_id UUID NOT NULL REFERENCES decisions(id),
+  event_id UUID NOT NULL REFERENCES events(id),
+  control_id UUID REFERENCES controls(id),
+  entity_id TEXT NOT NULL,
+  entity_name TEXT,
+  confidence_score NUMERIC NOT NULL,
+  recommended_action TEXT NOT NULL,
+  reasoning TEXT,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'overridden', 'escalated')),
+  reviewer_action TEXT CHECK (reviewer_action IN ('approve', 'override', 'escalate') OR reviewer_action IS NULL),
+  reviewer_notes TEXT,
+  reviewed_by TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  reviewed_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_review_items_status ON review_items(status);
+CREATE INDEX IF NOT EXISTS idx_review_items_decision ON review_items(decision_id);
+CREATE INDEX IF NOT EXISTS idx_review_items_created_at ON review_items(created_at DESC);
+
+-- ============================================
+-- Audit Events Table
+-- ============================================
+CREATE TABLE IF NOT EXISTS audit_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  timestamp TIMESTAMPTZ DEFAULT NOW(),
+  event_type TEXT NOT NULL,
+  description TEXT NOT NULL,
+  actor TEXT,
+  document_id UUID REFERENCES policy_packs(id),
+  rule_id UUID REFERENCES controls(id),
+  review_item_id UUID REFERENCES review_items(id),
+  decision_id UUID REFERENCES decisions(id),
+  metadata JSONB DEFAULT '{}'
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_events_timestamp ON audit_events(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_events_type ON audit_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_audit_events_document ON audit_events(document_id);
+CREATE INDEX IF NOT EXISTS idx_audit_events_rule ON audit_events(rule_id);
 
 -- ============================================
 -- Graph Nodes Table (for Graph RAG - stored in Supabase as backup)
