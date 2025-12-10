@@ -1,5 +1,6 @@
-import { generateText } from "ai"
-import { policyChunks, graphNodes, graphEdges } from "@/lib/store"
+import { generateText } from "@/lib/openai-client"
+import { getPolicyChunks } from "@/lib/supabase"
+import { getGraph } from "@/lib/neo4j"
 
 export async function POST(req: Request) {
   try {
@@ -9,24 +10,26 @@ export async function POST(req: Request) {
       return Response.json({ success: false, error: "Missing query" }, { status: 400 })
     }
 
-    // Get chunks for this policy pack (or all if no pack specified)
-    const relevantChunks = policyPackId ? policyChunks.filter((c) => c.policy_pack_id === policyPackId) : policyChunks
+    // Get chunks for this policy pack
+    const relevantChunks = policyPackId 
+      ? await getPolicyChunks(policyPackId)
+      : []
 
     // Get graph for context
-    const relevantNodes = policyPackId ? graphNodes.filter((n) => n.policy_pack_id === policyPackId) : graphNodes
-
-    const relevantEdges = policyPackId ? graphEdges.filter((e) => e.policy_pack_id === policyPackId) : graphEdges
+    const { nodes: relevantNodes } = policyPackId
+      ? await getGraph(policyPackId)
+      : { nodes: [] }
 
     // Build context from chunks and graph
     const chunksContext = relevantChunks.map((c) => `[${c.section_ref}]: ${c.content}`).join("\n\n")
 
     const graphContext = relevantNodes
-      .map((n) => `- ${n.node_type}: "${n.label}" (from: "${n.source_text}")`)
+      .map((n) => `- ${n.node_type}: "${n.label}" (from: "${n.source_text || ""}")`)
       .join("\n")
 
     // Use AI to answer based on RAG context
-    const { text } = await generateText({
-      model: "anthropic/claude-sonnet-4-20250514",
+    const text = await generateText({
+      model: "gpt-4o",
       prompt: `You are a compliance policy expert. Answer the following question based ONLY on the provided policy context.
 
 POLICY CHUNKS:
@@ -38,7 +41,7 @@ ${graphContext}
 USER QUESTION: ${query}
 
 Provide a clear, accurate answer based on the policy content. If the information is not in the context, say so.`,
-      maxOutputTokens: 1000,
+      maxTokens: 1000,
     })
 
     return Response.json({

@@ -1,44 +1,221 @@
-// Supabase client for server-side operations
-import { createClient } from "@supabase/supabase-js"
+// Direct Postgres connection for local development
+// Bypasses PostgREST to avoid JWT issues
+import { Pool } from "pg"
 import type { Database } from "./database.types"
 
 if (!process.env.POSTGRES_URL) {
   throw new Error("Missing POSTGRES_URL environment variable")
 }
 
+// Direct Postgres connection pool
+const pool = new Pool({
+  connectionString: process.env.POSTGRES_URL,
+})
+
 // For direct Postgres connection
 export const getPostgresUrl = () => process.env.POSTGRES_URL!
 
-// Create Supabase client (will use PostgREST API)
-const supabaseUrl = process.env.SUPABASE_URL || "http://localhost:3000"
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaWF0IjoxNjE2NDQwMDAwfQ.0"
+// Helper to execute direct SQL queries
+async function query(sql: string, params: unknown[] = []) {
+  try {
+    const result = await pool.query(sql, params)
+    return { data: result.rows, error: null, count: result.rows.length }
+  } catch (error) {
+    return { data: null, error, count: 0 }
+  }
+}
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-  },
-})
+// Create a Supabase-like client wrapper for compatibility
+const createSupabaseLikeClient = () => {
+  return {
+    from: (table: string) => ({
+      select: (columns: string = "*", options?: { count?: "exact"; head?: boolean }) => {
+        let sql = `SELECT ${columns} FROM ${table}`
+        const params: unknown[] = []
+        let paramIndex = 1
+
+        const builder = {
+          eq: (column: string, value: unknown) => {
+            sql += ` WHERE ${column} = $${paramIndex}`
+            params.push(value)
+            paramIndex++
+            return builder
+          },
+          order: (column: string, options?: { ascending?: boolean }) => {
+            const order = options?.ascending === false ? "DESC" : "ASC"
+            sql += ` ORDER BY ${column} ${order}`
+            return builder
+          },
+          limit: (count: number) => {
+            sql += ` LIMIT ${count}`
+            return builder
+          },
+          single: async () => {
+            sql += " LIMIT 1"
+            const result = await query(sql, params)
+            if (result.error) throw result.error
+            return { data: result.data?.[0] || null, error: null }
+          },
+          async then(resolve: (value: any) => any) {
+            if (options?.head) {
+              resolve({ count: 0, error: null })
+            } else {
+              const result = await query(sql, params)
+              if (result.error) {
+                resolve({ data: null, error: result.error, count: 0 })
+              } else {
+                resolve({ data: result.data || [], error: null, count: result.count })
+              }
+            }
+          },
+        }
+        return builder
+      },
+      insert: (data: Record<string, unknown> | Array<Record<string, unknown>>) => ({
+        select: (columns: string = "*") => ({
+          single: async () => {
+            const records = Array.isArray(data) ? data : [data]
+            if (records.length === 0) {
+              return { data: null, error: null }
+            }
+            const keys = Object.keys(records[0])
+            // Handle JSONB and vector fields
+            const valuesList = records.map((r) => 
+              keys.map((k) => {
+                const value = r[k]
+                // Format vector arrays for pgvector: [1,2,3]
+                if (k === 'embedding' && Array.isArray(value)) {
+                  return `[${value.join(',')}]`
+                }
+                return value
+              })
+            )
+            const placeholders = records
+              .map((_, i) => `(${keys.map((k, j) => {
+                const paramNum = i * keys.length + j + 1
+                // Cast embedding to vector type
+                if (k === 'embedding') {
+                  return `$${paramNum}::vector`
+                }
+                return `$${paramNum}`
+              }).join(", ")})`)
+              .join(", ")
+            const flatValues = valuesList.flat()
+            const sql = `INSERT INTO ${table} (${keys.join(", ")}) VALUES ${placeholders} RETURNING ${columns}`
+            const result = await query(sql, flatValues)
+            if (result.error) throw result.error
+            return { data: result.data?.[0] || null, error: null }
+          },
+          async then(resolve: (value: any) => any) {
+            const records = Array.isArray(data) ? data : [data]
+            if (records.length === 0) {
+              resolve({ data: [], error: null })
+              return
+            }
+            const keys = Object.keys(records[0])
+            // Handle JSONB and vector fields
+            const valuesList = records.map((r) => 
+              keys.map((k) => {
+                const value = r[k]
+                // Format vector arrays for pgvector: [1,2,3]
+                if (k === 'embedding' && Array.isArray(value)) {
+                  return `[${value.join(',')}]`
+                }
+                return value
+              })
+            )
+            const placeholders = records
+              .map((_, i) => `(${keys.map((k, j) => {
+                const paramNum = i * keys.length + j + 1
+                // Cast embedding to vector type
+                if (k === 'embedding') {
+                  return `$${paramNum}::vector`
+                }
+                return `$${paramNum}`
+              }).join(", ")})`)
+              .join(", ")
+            const flatValues = valuesList.flat()
+            const sql = `INSERT INTO ${table} (${keys.join(", ")}) VALUES ${placeholders} RETURNING ${columns}`
+            const result = await query(sql, flatValues)
+            if (result.error) {
+              resolve({ data: null, error: result.error })
+            } else {
+              resolve({ data: result.data || [], error: null })
+            }
+          },
+        }),
+      }),
+      update: (updates: Record<string, unknown>) => {
+        const keys = Object.keys(updates)
+        const values = Object.values(updates)
+        let sql = `UPDATE ${table} SET ${keys.map((k, i) => `${k} = $${i + 1}`).join(", ")}`
+        const params: unknown[] = [...values]
+        let paramIndex = keys.length + 1
+
+        return {
+          eq: (column: string, value: unknown) => ({
+            select: (columns: string = "*") => ({
+              single: async () => {
+                sql += ` WHERE ${column} = $${paramIndex} RETURNING ${columns}`
+                params.push(value)
+                const result = await query(sql, params)
+                if (result.error) throw result.error
+                return { data: result.data?.[0] || null, error: null }
+              },
+            }),
+          }),
+        }
+      },
+      delete: () => {
+        let sql = `DELETE FROM ${table}`
+        const params: unknown[] = []
+        let paramIndex = 1
+
+        return {
+          eq: (column: string, value: unknown) => ({
+            async then(resolve: (value: any) => any) {
+              sql += ` WHERE ${column} = $${paramIndex}`
+              params.push(value)
+              const result = await query(sql, params)
+              if (result.error) {
+                resolve({ error: result.error })
+              } else {
+                resolve({ error: null })
+              }
+            },
+          }),
+        }
+      },
+    }),
+  }
+}
+
+export const supabase = createSupabaseLikeClient() as any
+
+// Export getSupabase function for use in API routes
+export const getSupabase = () => supabase
 
 // Helper functions for common operations
 
 export async function getPolicyPacks() {
-  const { data, error } = await supabase
+  const result = await supabase
     .from("policy_packs")
     .select("*")
     .order("created_at", { ascending: false })
-
+  
+  const { data, error } = await Promise.resolve(result)
   if (error) throw error
-  return data
+  return data || []
 }
 
 export async function getPolicyPackById(id: string) {
-  const { data, error } = await supabase
+  const result = await supabase
     .from("policy_packs")
     .select("*")
     .eq("id", id)
     .single()
-
+  
+  const { data, error } = await Promise.resolve(result)
   if (error) throw error
   return data
 }
@@ -50,7 +227,7 @@ export async function createPolicyPack(pack: {
   raw_content?: string
   description?: string
 }) {
-  const { data, error } = await supabase
+  const result = await supabase
     .from("policy_packs")
     .insert({
       ...pack,
@@ -58,31 +235,34 @@ export async function createPolicyPack(pack: {
     })
     .select()
     .single()
-
+  
+  const { data, error } = await Promise.resolve(result)
   if (error) throw error
   return data
 }
 
 export async function updatePolicyPack(id: string, updates: Record<string, unknown>) {
-  const { data, error } = await supabase
+  const result = await supabase
     .from("policy_packs")
     .update(updates)
     .eq("id", id)
     .select()
     .single()
-
+  
+  const { data, error } = await Promise.resolve(result)
   if (error) throw error
   return data
 }
 
 export async function getPolicyChunks(policyPackId: string) {
-  const { data, error } = await supabase
+  const result = await supabase
     .from("policy_chunks")
     .select("*")
     .eq("policy_pack_id", policyPackId)
-
+  
+  const { data, error } = await Promise.resolve(result)
   if (error) throw error
-  return data
+  return data || []
 }
 
 export async function createPolicyChunks(chunks: Array<{
@@ -92,13 +272,14 @@ export async function createPolicyChunks(chunks: Array<{
   embedding: number[] | null
   metadata: Record<string, unknown>
 }>) {
-  const { data, error } = await supabase
+  const result = await supabase
     .from("policy_chunks")
     .insert(chunks)
     .select()
-
+  
+  const { data, error } = await Promise.resolve(result)
   if (error) throw error
-  return data
+  return data || []
 }
 
 export async function searchPolicyChunks(policyPackId: string, embedding: number[], limit = 10) {
@@ -114,10 +295,11 @@ export async function getControls(policyPackId?: string) {
     query = query.eq("policy_pack_id", policyPackId)
   }
 
-  const { data, error } = await query
+  const result = await Promise.resolve(query)
+  const { data, error } = result
 
   if (error) throw error
-  return data
+  return data || []
 }
 
 export async function getEnabledControls(policyPackId?: string) {
@@ -127,10 +309,11 @@ export async function getEnabledControls(policyPackId?: string) {
     query = query.eq("policy_pack_id", policyPackId)
   }
 
-  const { data, error } = await query
+  const result = await Promise.resolve(query)
+  const { data, error } = result
 
   if (error) throw error
-  return data
+  return data || []
 }
 
 export async function createControls(controls: Array<{
@@ -146,21 +329,23 @@ export async function createControls(controls: Array<{
   source_node_ids?: string[]
   ai_reasoning: string | null
 }>) {
-  const { data, error } = await supabase
+  const result = await supabase
     .from("controls")
     .insert(controls.map(c => ({ ...c, enabled: c.enabled ?? true })))
     .select()
-
+  
+  const { data, error } = await Promise.resolve(result)
   if (error) throw error
-  return data
+  return data || []
 }
 
 export async function deleteControlsByPolicyPack(policyPackId: string) {
-  const { error } = await supabase
+  const result = await supabase
     .from("controls")
     .delete()
     .eq("policy_pack_id", policyPackId)
-
+  
+  const { error } = await Promise.resolve(result)
   if (error) throw error
 }
 
@@ -169,12 +354,13 @@ export async function createEvent(event: {
   entity_id: string
   payload: Record<string, unknown>
 }) {
-  const { data, error } = await supabase
+  const result = await supabase
     .from("events")
     .insert(event)
     .select()
     .single()
-
+  
+  const { data, error } = await Promise.resolve(result)
   if (error) throw error
   return data
 }
@@ -189,12 +375,13 @@ export async function createDecision(decision: {
   policy_pack_version: string
   control_snapshot?: Record<string, unknown>
 }) {
-  const { data, error } = await supabase
+  const result = await supabase
     .from("decisions")
     .insert(decision)
     .select()
     .single()
-
+  
+  const { data, error } = await Promise.resolve(result)
   if (error) throw error
   return data
 }
@@ -209,7 +396,7 @@ export async function createCase(caseData: {
   assigned_to?: string
   notes?: string
 }) {
-  const { data, error } = await supabase
+  const result = await supabase
     .from("cases")
     .insert({
       ...caseData,
@@ -217,8 +404,8 @@ export async function createCase(caseData: {
     })
     .select()
     .single()
-
+  
+  const { data, error } = await Promise.resolve(result)
   if (error) throw error
   return data
 }
-

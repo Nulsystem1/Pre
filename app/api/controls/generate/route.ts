@@ -1,7 +1,7 @@
-import { generateObject } from "ai"
 import { z } from "zod"
 import { getPolicyPackById, getPolicyChunks, createControls, deleteControlsByPolicyPack } from "@/lib/supabase"
 import { getGraph } from "@/lib/neo4j"
+import { generateStructuredOutput } from "@/lib/openai-client"
 import type { Control, JSONLogicCondition } from "@/lib/types"
 
 // Schema for generating controls from graph traversal
@@ -72,8 +72,8 @@ ${incoming ? `Incoming:\n${incoming}` : ""}`
     const chunksContext = chunks.map((c) => `[${c.section_ref}]: ${c.content}`).join("\n\n")
 
     // Generate controls using AI with graph context
-    const result = await generateObject({
-      model: "openai/gpt-4o",
+    const result = await generateStructuredOutput({
+      model: "gpt-4o",
       schema: controlsSchema,
       prompt: `You are a compliance control engineer. Generate executable JSON Logic controls from the following policy knowledge graph.
 
@@ -113,11 +113,11 @@ Generate comprehensive controls that:
 4. Include clear reasoning tied to policy text
 
 Use control IDs that match the policy pack type (e.g., KYC-001, AML-001, SANCT-001).`,
-      maxOutputTokens: 4000,
+      maxTokens: 4000,
     })
 
     // Map generated controls to our format
-    const controlsToCreate = result.object.controls.map((ctrl) => ({
+    const controlsToCreate = result.controls.map((ctrl) => ({
       policy_pack_id: policyPackId,
       control_id: ctrl.control_id,
       name: ctrl.name,

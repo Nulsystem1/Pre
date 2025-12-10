@@ -1,8 +1,8 @@
-import { generateObject } from "ai"
 import { z } from "zod"
 import { updatePolicyPack, createPolicyChunks, getPolicyPackById } from "@/lib/supabase"
 import { createGraphNodes, createGraphEdges, deleteGraphByPolicyPack } from "@/lib/neo4j"
 import { generateEmbeddings } from "@/lib/embeddings"
+import { generateStructuredOutput } from "@/lib/openai-client"
 import type { GraphNode, GraphEdge, PolicyChunk } from "@/lib/types"
 
 // Schema for extracting policy chunks
@@ -62,8 +62,8 @@ export async function POST(req: Request) {
     await updatePolicyPack(policyPackId, { raw_content: policyText })
 
     // Step 1: Extract chunks using AI (Linear RAG preparation)
-    const chunksResult = await generateObject({
-      model: "openai/gpt-4o",
+    const chunksResult = await generateStructuredOutput({
+      model: "gpt-4o",
       schema: chunksSchema,
       prompt: `You are a compliance policy analyst. Extract structured chunks from the following policy document.
 Each chunk should represent a single policy requirement or rule that could be turned into a control.
@@ -72,17 +72,17 @@ Policy Document:
 ${policyText}
 
 Extract each distinct rule or requirement as a separate chunk with its section reference, priority, and primary action type.`,
-      maxOutputTokens: 4000,
+      maxTokens: 4000,
     })
 
     // Generate embeddings for chunks
     const chunksWithEmbeddings = await generateEmbeddings(
-      chunksResult.object.chunks.map((c) => c.content)
+      chunksResult.chunks.map((c) => c.content)
     )
 
     // Store chunks in Supabase
     const newChunks = await createPolicyChunks(
-      chunksResult.object.chunks.map((chunk, i) => ({
+      chunksResult.chunks.map((chunk, i) => ({
         policy_pack_id: policyPackId,
         content: chunk.content,
         section_ref: chunk.section_ref,
@@ -95,8 +95,8 @@ Extract each distinct rule or requirement as a separate chunk with its section r
     )
 
     // Step 2: Extract graph entities and relationships (Graph RAG)
-    const graphResult = await generateObject({
-      model: "openai/gpt-4o",
+    const graphResult = await generateStructuredOutput({
+      model: "gpt-4o",
       schema: graphSchema,
       prompt: `You are a compliance policy analyst building a knowledge graph. Extract entities and relationships from the following policy document.
 
@@ -121,11 +121,11 @@ Policy Document:
 ${policyText}
 
 Extract all entities and their relationships. Be thorough - capture all thresholds, conditions, and actions mentioned.`,
-      maxOutputTokens: 4000,
+      maxTokens: 4000,
     })
 
     // Store graph nodes with positions
-    const newNodes: GraphNode[] = graphResult.object.nodes.map((node, i) => ({
+    const newNodes: GraphNode[] = graphResult.nodes.map((node, i) => ({
       id: `node-${policyPackId}-${Date.now()}-${i}`,
       policy_pack_id: policyPackId,
       node_type: node.node_type,
@@ -139,7 +139,7 @@ Extract all entities and their relationships. Be thorough - capture all threshol
     }))
 
     // Store graph edges
-    const newEdges: GraphEdge[] = graphResult.object.edges.map((edge, i) => ({
+    const newEdges: GraphEdge[] = graphResult.edges.map((edge, i) => ({
       id: `edge-${policyPackId}-${Date.now()}-${i}`,
       policy_pack_id: policyPackId,
       source_node_id: newNodes[edge.source_index]?.id || "",
