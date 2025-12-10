@@ -16,7 +16,7 @@ const pool = new Pool({
 export const getPostgresUrl = () => process.env.POSTGRES_URL!
 
 // Helper to execute direct SQL queries
-async function query(sql: string, params: unknown[] = []) {
+export async function query(sql: string, params: unknown[] = []) {
   try {
     const result = await pool.query(sql, params)
     return { data: result.rows, error: null, count: result.rows.length }

@@ -1,232 +1,285 @@
 "use client"
 
 import { useState } from "react"
-import { AuditFilters } from "@/components/audit/audit-filters"
-import { AuditTable } from "@/components/audit/audit-table"
-import { AuditDetailModal } from "@/components/audit/audit-detail-modal"
+import useSWR from "swr"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Loader2, Search, TrendingUp, TrendingDown, Minus } from "lucide-react"
 
-export type AuditRecord = {
-  id: string
-  time: string
-  entityType: "Customer" | "Transaction"
-  entityId: string
-  entityName: string
-  decision: "Approved" | "Review" | "Blocked"
-  control: string | null
-  policyVersion: string
-  actor: "System" | "Analyst"
-  actorName?: string
-  rawData: {
-    event: Record<string, unknown>
-    decision: Record<string, unknown>
-  }
-}
-
-const auditRecords: AuditRecord[] = [
-  {
-    id: "AUD-928471",
-    time: "2025-01-14 10:32:45",
-    entityType: "Customer",
-    entityId: "CUS-48291",
-    entityName: "James Morrison",
-    decision: "Approved",
-    control: null,
-    policyVersion: "KYC Pack v1.3",
-    actor: "System",
-    rawData: {
-      event: {
-        event_id: "EVT-9001",
-        type: "customer_onboarding",
-        customer_id: "CUS-48291",
-        name: "James Morrison",
-        country: "US",
-        risk_score: 28,
-        timestamp: "2025-01-14T10:32:45Z",
-      },
-      decision: {
-        decision_id: "DEC-482910",
-        outcome: "approved",
-        controls_evaluated: ["KYC-001", "KYC-002", "KYC-003"],
-        controls_triggered: [],
-        confidence: 0.98,
-        processing_time_ms: 45,
-      },
-    },
-  },
-  {
-    id: "AUD-928470",
-    time: "2025-01-14 10:32:21",
-    entityType: "Transaction",
-    entityId: "TXN-892741",
-    entityName: "$45,200.00 Wire Transfer",
-    decision: "Review",
-    control: "TXN-Velocity-003",
-    policyVersion: "AML Pack v1.3",
-    actor: "System",
-    rawData: {
-      event: {
-        event_id: "EVT-9000",
-        type: "wire_transfer",
-        transaction_id: "TXN-892741",
-        amount: 45200.0,
-        currency: "USD",
-        customer_id: "CUS-48285",
-        destination_country: "CH",
-        timestamp: "2025-01-14T10:32:21Z",
-      },
-      decision: {
-        decision_id: "DEC-482909",
-        outcome: "review",
-        controls_evaluated: ["TXN-001", "TXN-002", "TXN-Velocity-003"],
-        controls_triggered: ["TXN-Velocity-003"],
-        reason: "Transaction exceeds 90-day average by 5x",
-        confidence: 0.92,
-        processing_time_ms: 38,
-      },
-    },
-  },
-  {
-    id: "AUD-928469",
-    time: "2025-01-14 10:31:58",
-    entityType: "Customer",
-    entityId: "CUS-48290",
-    entityName: "Sarah Williams",
-    decision: "Approved",
-    control: null,
-    policyVersion: "KYC Pack v1.3",
-    actor: "System",
-    rawData: {
-      event: {
-        event_id: "EVT-8999",
-        type: "customer_onboarding",
-        customer_id: "CUS-48290",
-        name: "Sarah Williams",
-        country: "UK",
-        risk_score: 15,
-        timestamp: "2025-01-14T10:31:58Z",
-      },
-      decision: {
-        decision_id: "DEC-482908",
-        outcome: "approved",
-        controls_evaluated: ["KYC-001", "KYC-002", "KYC-003"],
-        controls_triggered: [],
-        confidence: 0.99,
-        processing_time_ms: 42,
-      },
-    },
-  },
-  {
-    id: "AUD-928468",
-    time: "2025-01-14 10:31:15",
-    entityType: "Transaction",
-    entityId: "TXN-892739",
-    entityName: "$89,500.00 Wire Transfer",
-    decision: "Blocked",
-    control: "SANCT-Screen-001",
-    policyVersion: "AML Pack v1.3",
-    actor: "System",
-    rawData: {
-      event: {
-        event_id: "EVT-8997",
-        type: "wire_transfer",
-        transaction_id: "TXN-892739",
-        amount: 89500.0,
-        currency: "USD",
-        customer_id: "CUS-48275",
-        destination_country: "RU",
-        timestamp: "2025-01-14T10:31:15Z",
-      },
-      decision: {
-        decision_id: "DEC-482907",
-        outcome: "blocked",
-        controls_evaluated: ["TXN-001", "SANCT-Screen-001"],
-        controls_triggered: ["SANCT-Screen-001"],
-        reason: "Destination country under sanctions",
-        confidence: 1.0,
-        processing_time_ms: 28,
-      },
-    },
-  },
-  {
-    id: "AUD-928467",
-    time: "2025-01-14 10:30:52",
-    entityType: "Customer",
-    entityId: "CUS-48289",
-    entityName: "Marcus Thompson",
-    decision: "Review",
-    control: "PEP-Screen-001",
-    policyVersion: "KYC Pack v1.3",
-    actor: "System",
-    rawData: {
-      event: {
-        event_id: "EVT-8996",
-        type: "customer_onboarding",
-        customer_id: "CUS-48289",
-        name: "Marcus Thompson",
-        country: "UK",
-        risk_score: 72,
-        timestamp: "2025-01-14T10:30:52Z",
-      },
-      decision: {
-        decision_id: "DEC-482906",
-        outcome: "review",
-        controls_evaluated: ["KYC-001", "KYC-002", "PEP-Screen-001"],
-        controls_triggered: ["PEP-Screen-001"],
-        reason: "PEP match confidence 78%",
-        confidence: 0.78,
-        processing_time_ms: 156,
-      },
-    },
-  },
-  {
-    id: "AUD-928466",
-    time: "2025-01-14 09:45:30",
-    entityType: "Customer",
-    entityId: "CUS-48280",
-    entityName: "Ahmed Hassan",
-    decision: "Review",
-    control: "JURIS-Risk-001",
-    policyVersion: "KYC Pack v1.3",
-    actor: "Analyst",
-    actorName: "Sarah Chen",
-    rawData: {
-      event: {
-        event_id: "EVT-8990",
-        type: "manual_review",
-        customer_id: "CUS-48280",
-        action: "request_documentation",
-        analyst_id: "USR-001",
-        timestamp: "2025-01-14T09:45:30Z",
-      },
-      decision: {
-        decision_id: "DEC-482900",
-        outcome: "pending_documentation",
-        documents_requested: ["source_of_funds", "beneficial_ownership", "business_purpose"],
-        notes: "Enhanced due diligence required for high-risk jurisdiction",
-      },
-    },
-  },
-]
+const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 export default function AuditExplorerPage() {
-  const [selectedRecord, setSelectedRecord] = useState<AuditRecord | null>(null)
-  const [filters, setFilters] = useState({
-    dateRange: "today",
-    decision: "all",
-    control: "all",
-    customer: "",
-  })
+  const [outcomeFilter, setOutcomeFilter] = useState("all")
+  const [selectedDecision, setSelectedDecision] = useState<any>(null)
+
+  const { data, isLoading } = useSWR(
+    outcomeFilter === "all" ? "/api/audit" : `/api/audit?outcome=${outcomeFilter}`,
+    fetcher,
+    { refreshInterval: 5000 }
+  )
+
+  const decisions = data?.data?.decisions || []
+
+  const stats = {
+    total: decisions.length,
+    approved: decisions.filter((d: any) => d.outcome === "APPROVED").length,
+    blocked: decisions.filter((d: any) => d.outcome === "BLOCKED").length,
+    review: decisions.filter((d: any) => d.outcome === "REVIEW").length,
+    avgConfidence: decisions.length > 0
+      ? (decisions.reduce((sum: number, d: any) => sum + (parseFloat(d.confidence) || 0), 0) / decisions.length).toFixed(2)
+      : "0.00",
+  }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Audit Explorer</h1>
-        <p className="text-muted-foreground">Search and review the complete audit trail of all compliance decisions</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Audit Explorer</h1>
+          <p className="text-muted-foreground">All agent decisions and reasoning</p>
+        </div>
       </div>
 
-      <AuditFilters filters={filters} onFiltersChange={setFilters} />
-      <AuditTable records={auditRecords} onSelectRecord={setSelectedRecord} />
-      <AuditDetailModal record={selectedRecord} onClose={() => setSelectedRecord(null)} />
+      {/* Stats */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Decisions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.total}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Approved</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{stats.approved}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Blocked</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">{stats.blocked}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Avg Confidence</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{(parseFloat(stats.avgConfidence) * 100).toFixed(0)}%</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex items-center gap-4">
+            <Select value={outcomeFilter} onValueChange={setOutcomeFilter}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Filter by outcome" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Outcomes</SelectItem>
+                <SelectItem value="APPROVED">Approved Only</SelectItem>
+                <SelectItem value="BLOCKED">Blocked Only</SelectItem>
+                <SelectItem value="REVIEW">Review Only</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Audit Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Decision History</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="py-12 flex items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : decisions.length === 0 ? (
+            <div className="py-12 text-center text-muted-foreground">
+              <Search className="h-12 w-12 mx-auto mb-4" />
+              <p>No decisions found</p>
+              <p className="text-xs mt-1">Process some events in the Command Center</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Timestamp</TableHead>
+                  <TableHead>Event Type</TableHead>
+                  <TableHead>Outcome</TableHead>
+                  <TableHead>Confidence</TableHead>
+                  <TableHead>Risk</TableHead>
+                  <TableHead>Attempts</TableHead>
+                  <TableHead></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {decisions.map((decision: any) => (
+                  <TableRow key={decision.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedDecision(decision)}>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {new Date(decision.created_at).toLocaleString()}
+                    </TableCell>
+                    <TableCell className="font-medium">{decision.event_type}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          decision.outcome === "APPROVED" ? "default" :
+                          decision.outcome === "BLOCKED" ? "destructive" :
+                          "secondary"
+                        }
+                      >
+                        {decision.outcome}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-primary"
+                            style={{ width: `${(parseFloat(decision.confidence) || 0) * 100}%` }}
+                          />
+                        </div>
+                        <span className="text-sm">{((parseFloat(decision.confidence) || 0) * 100).toFixed(0)}%</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        {decision.risk_score >= 70 ? (
+                          <TrendingUp className="h-4 w-4 text-red-500" />
+                        ) : decision.risk_score >= 40 ? (
+                          <Minus className="h-4 w-4 text-yellow-500" />
+                        ) : (
+                          <TrendingDown className="h-4 w-4 text-green-500" />
+                        )}
+                        <span className="text-sm">{decision.risk_score}/100</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {decision.agent_attempts}/3
+                    </TableCell>
+                    <TableCell>
+                      <Button variant="ghost" size="sm">Details</Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Decision Detail Modal */}
+      <Dialog open={!!selectedDecision} onOpenChange={() => setSelectedDecision(null)}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          {selectedDecision && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center justify-between">
+                  <span>Decision Details</span>
+                  <Badge
+                    variant={
+                      selectedDecision.outcome === "APPROVED" ? "default" :
+                      selectedDecision.outcome === "BLOCKED" ? "destructive" :
+                      "secondary"
+                    }
+                    className="text-lg px-3 py-1"
+                  >
+                    {selectedDecision.outcome}
+                  </Badge>
+                </DialogTitle>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                {/* Metrics */}
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Confidence</p>
+                    <p className="text-2xl font-bold">
+                      {((parseFloat(selectedDecision.confidence) || 0) * 100).toFixed(0)}%
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Risk Score</p>
+                    <p className="text-2xl font-bold">{selectedDecision.risk_score}/100</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Agent Attempts</p>
+                    <p className="text-2xl font-bold">{selectedDecision.agent_attempts}/3</p>
+                  </div>
+                </div>
+
+                {/* Event Data */}
+                <div>
+                  <p className="text-sm font-medium mb-2">Event Data:</p>
+                  <pre className="bg-muted/50 rounded-lg p-4 text-xs overflow-x-auto">
+                    {JSON.stringify(selectedDecision.event_data, null, 2)}
+                  </pre>
+                </div>
+
+                {/* Reasoning */}
+                <div>
+                  <p className="text-sm font-medium mb-2">Agent Reasoning:</p>
+                  <p className="text-sm bg-muted/50 rounded-lg p-4">{selectedDecision.reasoning}</p>
+                </div>
+
+                {/* Matched Policies */}
+                {selectedDecision.matched_conditions && (
+                  <div>
+                    <p className="text-sm font-medium mb-2">Matched Policies:</p>
+                    <ul className="space-y-1">
+                      {(typeof selectedDecision.matched_conditions === 'string' 
+                        ? JSON.parse(selectedDecision.matched_conditions) 
+                        : selectedDecision.matched_conditions
+                      ).map((policy: string, i: number) => (
+                        <li key={i} className="text-sm text-muted-foreground">• {policy}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Agent Queries */}
+                {selectedDecision.agent_queries_used && selectedDecision.agent_queries_used.length > 0 && (
+                  <div>
+                    <p className="text-sm font-medium mb-2">Agent Search Queries:</p>
+                    <div className="space-y-2">
+                      {selectedDecision.agent_queries_used.map((query: string, i: number) => (
+                        <div key={i} className="text-xs bg-muted/30 rounded p-2 font-mono">
+                          Attempt {i + 1}: {query.substring(0, 100)}...
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {selectedDecision.requires_human_review && (
+                  <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
+                    <p className="text-sm font-medium text-yellow-600 dark:text-yellow-500">
+                      👤 Required Human Review (Low Confidence)
+                    </p>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -5,28 +5,23 @@ import { usePathname } from "next/navigation"
 import {
   LayoutDashboard,
   FileCode2,
-  Activity,
   Briefcase,
   Search,
-  Plug,
   Settings,
   Shield,
   ChevronLeft,
   ChevronRight,
-  FileText,
-  Play,
   CheckSquare,
-  FileSearch,
+  Zap,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useState } from "react"
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Command Center", href: "/command-center", icon: Zap },
   { name: "Policy Studio", href: "/policy-studio", icon: FileCode2 },
-  { name: "Event Simulator", href: "/event-simulator", icon: Play },
   { name: "Review Queue", href: "/review-queue", icon: CheckSquare },
-  { name: "Cases", href: "/cases", icon: Briefcase },
   { name: "Audit Explorer", href: "/audit-explorer", icon: Search },
   { name: "Settings", href: "/settings", icon: Settings },
 ]

@@ -1,6 +1,4 @@
-import { NextResponse } from "next/server"
-import { getSupabase } from "@/lib/supabase"
-import type { ReviewItem } from "@/lib/types"
+import { query } from "@/lib/supabase"
 
 /**
  * GET /api/review-queue
@@ -12,29 +10,37 @@ export async function GET(req: Request) {
     const status = searchParams.get("status")
     const limit = parseInt(searchParams.get("limit") || "50")
     
-    const supabase = getSupabase()
+    let sql = `
+      SELECT 
+        ri.*,
+        d.decision as decision_outcome,
+        d.risk_score,
+        d.ai_explanation,
+        d.confidence as decision_confidence,
+        e.event_type,
+        e.payload as event_data
+      FROM review_items ri
+      LEFT JOIN decisions d ON ri.decision_id = d.id
+      LEFT JOIN events e ON d.event_id = e.id
+    `
     
-    let query = supabase
-      .from("review_items")
-      .select("*, events(*), controls(*), decisions(*)")
-      .order("created_at", { ascending: false })
-      .limit(limit)
+    const params: unknown[] = []
     
     if (status) {
-      query = query.eq("status", status)
+      sql += ` WHERE ri.status = $1`
+      params.push(status)
     }
     
-    const { data, error } = await query
+    sql += ` ORDER BY ri.created_at DESC LIMIT $${params.length + 1}`
+    params.push(limit)
     
+    const { data, error } = await query(sql, params)
     if (error) throw error
     
-    return NextResponse.json({ success: true, data: data as ReviewItem[] })
+    return Response.json({ success: true, data: data || [] })
   } catch (error) {
     console.error("Error fetching review queue:", error)
-    return NextResponse.json(
-      { success: false, error: "Failed to fetch review queue" },
-      { status: 500 }
-    )
+    return Response.json({ success: false, error: "Failed to fetch review queue" }, { status: 500 })
   }
 }
 
