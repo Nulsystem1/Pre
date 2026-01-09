@@ -1,12 +1,22 @@
 "use client"
 
-import { useEffect, useState } from "react"
 import useSWR from "swr"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Activity, TrendingUp, TrendingDown, Clock, CheckCircle2, XCircle, AlertTriangle, Zap, Users } from "lucide-react"
-import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"
+import { Badge } from "@/components/ui/badge"
+import {
+  Activity, TrendingUp, TrendingDown, Clock, CheckCircle2,
+  XCircle, AlertTriangle, Zap, ArrowUpRight, BarChart3,
+  Search, Filter, Shield, Radar
+} from "lucide-react"
+import {
+  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  Legend, ResponsiveContainer
+} from "recharts"
 import Link from "next/link"
+import { Skeleton } from "@/components/ui/skeleton"
+import { cn } from "@/lib/utils"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -14,10 +24,9 @@ export default function DashboardPage() {
   const { data: auditData, isLoading } = useSWR("/api/audit", fetcher, {
     refreshInterval: 5000,
   })
-  
+
   const decisions = auditData?.data?.decisions || []
-  
-  // Calculate stats from real data
+
   const stats = {
     total_decisions: decisions.length,
     approved: decisions.filter((d: any) => d.outcome === "APPROVED").length,
@@ -27,12 +36,11 @@ export default function DashboardPage() {
     avg_confidence: decisions.length > 0
       ? Math.round(decisions.reduce((sum: number, d: any) => sum + (parseFloat(d.confidence) || 0), 0) / decisions.length * 100)
       : 0,
-    processing_today: decisions.filter((d: any) => 
+    processing_today: decisions.filter((d: any) =>
       new Date(d.created_at).toDateString() === new Date().toDateString()
     ).length,
   }
 
-  // Generate trend data from real decisions (last 7 days)
   const getLast7Days = () => {
     const days = []
     const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
@@ -48,7 +56,7 @@ export default function DashboardPage() {
   }
 
   const decisionTrendData = getLast7Days().map((day) => {
-    const dayDecisions = decisions.filter((d: any) => 
+    const dayDecisions = decisions.filter((d: any) =>
       new Date(d.created_at).toDateString() === day.fullDate
     )
     return {
@@ -59,253 +67,241 @@ export default function DashboardPage() {
     }
   })
 
-  // Confidence distribution from real data
-  const confidenceDistribution = [
-    { 
-      range: "90-100%", 
-      count: decisions.filter((d: any) => parseFloat(d.confidence) >= 0.9).length 
-    },
-    { 
-      range: "80-90%", 
-      count: decisions.filter((d: any) => parseFloat(d.confidence) >= 0.8 && parseFloat(d.confidence) < 0.9).length 
-    },
-    { 
-      range: "70-80%", 
-      count: decisions.filter((d: any) => parseFloat(d.confidence) >= 0.7 && parseFloat(d.confidence) < 0.8).length 
-    },
-    { 
-      range: "< 70%", 
-      count: decisions.filter((d: any) => parseFloat(d.confidence) < 0.7).length 
-    },
-  ]
-
-  // Risk score over time (last 24 hours in 4-hour blocks)
-  const getRiskScoreTimeline = () => {
-    const timeline = []
-    const now = new Date()
-    for (let i = 24; i >= 0; i -= 4) {
-      const time = new Date(now.getTime() - i * 60 * 60 * 1000)
-      const startTime = new Date(time.getTime() - 4 * 60 * 60 * 1000)
-      const timeDecisions = decisions.filter((d: any) => {
-        const decisionTime = new Date(d.created_at)
-        return decisionTime >= startTime && decisionTime < time
-      })
-      const avgRisk = timeDecisions.length > 0
-        ? Math.round(timeDecisions.reduce((sum: number, d: any) => sum + (d.risk_score || 0), 0) / timeDecisions.length)
-        : 0
-      timeline.push({
-        hour: time.getHours().toString().padStart(2, '0') + ":00",
-        avgRisk,
-      })
-    }
-    return timeline
-  }
-
-  const riskScoreData = getRiskScoreTimeline()
-
   // Sample data for charts
   const outcomeDistribution = [
     { name: "Approved", value: stats.approved, color: "#10b981" },
     { name: "Blocked", value: stats.blocked, color: "#ef4444" },
     { name: "Review", value: stats.review, color: "#f59e0b" },
-  ].filter(item => item.value > 0) // Only show non-zero values
+  ].filter(item => item.value > 0)
+
+  // Loading Skeleton
+  if (isLoading) {
+    return (
+      <div className="p-8 space-y-8 bg-zinc-950 min-h-screen text-white">
+        <div className="flex justify-between items-center">
+          <Skeleton className="h-10 w-48 bg-zinc-800" />
+          <Skeleton className="h-10 w-32 bg-zinc-800" />
+        </div>
+        <div className="grid gap-4 md:grid-cols-4">
+          {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-32 rounded-xl bg-zinc-800" />)}
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Skeleton className="h-[350px] rounded-xl bg-zinc-800" />
+          <Skeleton className="h-[350px] rounded-xl bg-zinc-800" />
+        </div>
+      </div>
+    )
+  }
+
+  // Get last 5 decisions
+  const recentDecisions = [...decisions]
+    .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, 5)
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-zinc-950 text-white p-8 font-sans selection:bg-blue-500/30">
+      {/* HEADER */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8 pb-6 border-b border-zinc-900">
         <div>
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground">Real-time compliance operations overview</p>
+          <h1 className="text-3xl font-bold tracking-tight text-white flex items-center gap-3">
+            <Radar className="h-8 w-8 text-blue-500 animate-pulse" />
+            Command Center
+          </h1>
+          <p className="text-zinc-400 mt-2">Real-time operational feedback loop</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-3">
           <Link href="/command-center">
-            <Button>
+            <Button className="bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/20 border-0">
               <Zap className="h-4 w-4 mr-2" />
-              Command Center
+              Process Items
             </Button>
           </Link>
         </div>
       </div>
 
-      {/* Key Metrics */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Decisions</CardTitle>
+      {/* KEY METRICS */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
+        <Card className="bg-zinc-900 border-zinc-800 text-white hover:border-zinc-700 transition-all">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-zinc-400">Total Volume</CardTitle>
+            <Activity className="h-4 w-4 text-zinc-500" />
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-between">
-              <div className="text-3xl font-bold">{stats.total_decisions}</div>
-              <Activity className="h-8 w-8 text-blue-500" />
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              <span className="text-green-600 font-medium">+{stats.processing_today}</span> today
+            <div className="text-2xl font-bold">{stats.total_decisions}</div>
+            <p className="text-xs text-zinc-500 mt-1">
+              Decisions processed
             </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Approved</CardTitle>
+        <Card className="bg-zinc-900 border-zinc-800 text-white hover:border-emerald-500/30 transition-all relative overflow-hidden group">
+          <div className="absolute inset-0 bg-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-emerald-400">Approved</CardTitle>
+            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
           </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div className="text-3xl font-bold text-green-600">{stats.approved}</div>
-              <CheckCircle2 className="h-8 w-8 text-green-500" />
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              {stats.total_decisions > 0 ? Math.round((stats.approved / stats.total_decisions) * 100) : 0}% of total
-            </p>
+          <CardContent className="relative z-10">
+            <div className="text-2xl font-bold text-white">{stats.approved}</div>
+            <p className="text-xs text-zinc-500 mt-1">Low risk vendors</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Blocked</CardTitle>
+        <Card className="bg-zinc-900 border-zinc-800 text-white hover:border-red-500/30 transition-all relative overflow-hidden group">
+          <div className="absolute inset-0 bg-red-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-red-400">Blocked</CardTitle>
+            <XCircle className="h-4 w-4 text-red-500" />
           </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div className="text-3xl font-bold text-red-600">{stats.blocked}</div>
-              <XCircle className="h-8 w-8 text-red-500" />
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              {stats.total_decisions > 0 ? Math.round((stats.blocked / stats.total_decisions) * 100) : 0}% of total
-            </p>
+          <CardContent className="relative z-10">
+            <div className="text-2xl font-bold text-white">{stats.blocked}</div>
+            <p className="text-xs text-zinc-500 mt-1">High risk threats</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Avg Confidence</CardTitle>
+        <Card className="bg-zinc-900 border-zinc-800 text-white hover:border-purple-500/30 transition-all relative overflow-hidden group">
+          <div className="absolute inset-0 bg-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-purple-400">Avg Confidence</CardTitle>
+            <BarChart3 className="h-4 w-4 text-purple-500" />
           </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div className="text-3xl font-bold">{stats.avg_confidence}%</div>
-              <TrendingUp className="h-8 w-8 text-purple-500" />
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              <span className="text-green-600 font-medium">+2.5%</span> vs last week
-            </p>
+          <CardContent className="relative z-10">
+            <div className="text-2xl font-bold">{stats.avg_confidence}%</div>
+            <p className="text-xs text-zinc-500 mt-1">AI Certainty Score</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Charts Row 1 */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
+
+        {/* MAIN CHARTS AREA */}
+        <Card className="col-span-4 bg-zinc-900 border-zinc-800">
           <CardHeader>
-            <CardTitle>Decision Trends (7 Days)</CardTitle>
+            <CardTitle className="text-white">Decision Velocity</CardTitle>
+            <CardDescription className="text-zinc-500">7-Day Volume Breakdown</CardDescription>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+          <CardContent className="pl-2">
+            <ResponsiveContainer width="100%" height={350}>
               <AreaChart data={decisionTrendData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip />
+                <defs>
+                  <linearGradient id="colorApproved" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="colorBlocked" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#27272a" />
+                <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} stroke="#71717a" />
+                <YAxis tickLine={false} axisLine={false} stroke="#71717a" />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#18181b',
+                    borderColor: '#27272a',
+                    color: '#fff',
+                    borderRadius: '8px'
+                  }}
+                  itemStyle={{ color: '#fff' }}
+                />
                 <Legend />
-                <Area type="monotone" dataKey="approved" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.6} />
-                <Area type="monotone" dataKey="review" stackId="1" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.6} />
-                <Area type="monotone" dataKey="blocked" stackId="1" stroke="#ef4444" fill="#ef4444" fillOpacity={0.6} />
+                <Area type="monotone" dataKey="approved" stroke="#10b981" fillOpacity={1} fill="url(#colorApproved)" strokeWidth={2} />
+                <Area type="monotone" dataKey="blocked" stroke="#ef4444" fillOpacity={1} fill="url(#colorBlocked)" strokeWidth={2} />
+                <Area type="monotone" dataKey="review" stroke="#f59e0b" fillOpacity={0} strokeWidth={2} strokeDasharray="5 5" />
               </AreaChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Outcome Distribution</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={outcomeDistribution}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name}: ${((percent || 0) * 100).toFixed(0)}%`}
-                  outerRadius={100}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {outcomeDistribution.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        {/* RECENT ACTIVITY & PIE CHART */}
+        <div className="col-span-3 grid gap-6">
+          {/* Recent Activity List */}
+          <Card className="bg-zinc-900 border-zinc-800 h-full flex flex-col">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base text-white flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-blue-500" /> Live Feed
+                </CardTitle>
+                <Link href="/audit-explorer" className="text-xs text-blue-400 hover:text-blue-300 transition-colors flex items-center">
+                  View All <ArrowUpRight className="h-3 w-3 ml-1" />
+                </Link>
+              </div>
+            </CardHeader>
+            <CardContent className="flex-1">
+              <div className="space-y-4">
+                {recentDecisions.length > 0 ? (
+                  recentDecisions.map((decision: any) => (
+                    <div key={decision.id} className="flex items-center justify-between border-b border-zinc-800 pb-3 last:border-0 last:pb-0 group hover:bg-zinc-800/50 p-2 rounded transition-colors -mx-2">
+                      <div className="flex items-center gap-3">
+                        <div className={`h-8 w-8 rounded-full flex items-center justify-center border ${decision.outcome === 'APPROVED' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' :
+                            decision.outcome === 'BLOCKED' ? 'bg-red-500/10 border-red-500/20 text-red-500' :
+                              'bg-amber-500/10 border-amber-500/20 text-amber-500'
+                          }`}>
+                          {decision.outcome === 'APPROVED' ? <CheckCircle2 className="h-4 w-4" /> :
+                            decision.outcome === 'BLOCKED' ? <XCircle className="h-4 w-4" /> :
+                              <AlertTriangle className="h-4 w-4" />}
+                        </div>
+                        <div className="grid gap-0.5">
+                          <p className="text-sm font-medium leading-none text-zinc-200">{decision.event?.payload?.vendor_name || "Unknown Vendor"}</p>
+                          <p className="text-xs text-zinc-500">{new Date(decision.created_at).toLocaleTimeString()}</p>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className={`border-0 ${decision.outcome === 'APPROVED' ? 'bg-emerald-500/10 text-emerald-400' :
+                          decision.outcome === 'BLOCKED' ? 'bg-red-500/10 text-red-400' :
+                            'bg-amber-500/10 text-amber-400'
+                        }`}>
+                        {(decision.confidence * 100).toFixed(0)}%
+                      </Badge>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-12 text-zinc-600 flex flex-col items-center">
+                    <Shield className="h-8 w-8 mb-2 opacity-20" />
+                    <span className="text-sm">No recent activity</span>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Small Distribution Chart */}
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardHeader className="pb-0">
+              <CardTitle className="text-base text-white">Outcomes</CardTitle>
+            </CardHeader>
+            <CardContent className="h-[200px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={outcomeDistribution}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={50}
+                    outerRadius={70}
+                    paddingAngle={5}
+                    dataKey="value"
+                    stroke="none"
+                  >
+                    {outcomeDistribution.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    cursor={false}
+                    contentStyle={{
+                      backgroundColor: '#18181b',
+                      borderColor: '#27272a',
+                      color: '#fff',
+                      borderRadius: '8px'
+                    }}
+                  />
+                  <Legend iconSize={8} wrapperStyle={{ fontSize: '11px', color: '#a1a1aa' }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
       </div>
-
-      {/* Charts Row 2 */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Confidence Distribution</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={confidenceDistribution}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="range" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="count" fill="#8b5cf6" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Risk Score Over Time</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={riskScoreData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="hour" />
-                <YAxis domain={[0, 100]} />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="avgRisk" stroke="#ef4444" strokeWidth={2} dot={{ r: 4 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-3 md:grid-cols-3">
-            <Link href="/command-center">
-              <Button className="w-full" variant="outline">
-                <Zap className="h-4 w-4 mr-2" />
-                Process Pending ({stats.pending})
-              </Button>
-            </Link>
-            <Link href="/review-queue">
-              <Button className="w-full" variant="outline">
-                <AlertTriangle className="h-4 w-4 mr-2" />
-                Review Queue ({stats.review})
-              </Button>
-            </Link>
-            <Link href="/audit-explorer">
-              <Button className="w-full" variant="outline">
-                <Activity className="h-4 w-4 mr-2" />
-                View All Decisions
-              </Button>
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   )
 }

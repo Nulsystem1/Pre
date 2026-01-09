@@ -426,76 +426,70 @@ export default function AgentBuilderPage() {
           </div>
         </div>
 
-        {/* Node Palette */}
-        <Card className="p-4 mb-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Plus className="h-4 w-4" />
-            <span className="text-sm font-medium">Node Library</span>
-            <Badge variant="outline" className="text-xs">Drag to canvas</Badge>
-          </div>
-          
-          <div className="space-y-4">
+        {/* Node Palette - Compact */}
+        <Card className="p-3 mb-4">
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              <span className="text-sm font-medium">Node Library</span>
+              <Badge variant="outline" className="text-xs">Drag to canvas</Badge>
+            </div>
+            
             {/* Triggers */}
-            <div>
-              <h3 className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Triggers</h3>
-              <div className="flex flex-wrap gap-2">
-                {nodeCategories.triggers.map((template) => {
-                  const Icon = template.icon
-                  return (
-                    <div
-                      key={template.type}
-                      draggable
-                      onDragStart={(e) => onDragStart(e, template.type, template.label)}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-md border-2 cursor-move transition-colors ${template.colorClass}`}
-                    >
-                      <Icon className={`h-4 w-4 ${template.iconColor}`} />
-                      <span className="text-xs font-medium">{template.label}</span>
-                    </div>
-                  )
-                })}
-              </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-muted-foreground font-semibold">Triggers:</span>
+              {nodeCategories.triggers.map((template) => {
+                const Icon = template.icon
+                return (
+                  <div
+                    key={template.type}
+                    draggable
+                    onDragStart={(e) => onDragStart(e, template.type, template.label)}
+                    className={`flex items-center gap-1 px-2 py-1 rounded-md border-2 cursor-move transition-colors ${template.colorClass}`}
+                  >
+                    <Icon className={`h-3 w-3 ${template.iconColor}`} />
+                    <span className="text-xs font-medium">{template.label}</span>
+                  </div>
+                )
+              })}
             </div>
 
             {/* Logic */}
-            <div>
-              <h3 className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Logic & Flow</h3>
-              <div className="flex flex-wrap gap-2">
-                {nodeCategories.logic.map((template) => {
-                  const Icon = template.icon
-                  return (
-                    <div
-                      key={template.type}
-                      draggable
-                      onDragStart={(e) => onDragStart(e, template.type, template.label)}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-md border-2 cursor-move transition-colors ${template.colorClass}`}
-                    >
-                      <Icon className={`h-4 w-4 ${template.iconColor}`} />
-                      <span className="text-xs font-medium">{template.label}</span>
-                    </div>
-                  )
-                })}
-              </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-muted-foreground font-semibold">Logic:</span>
+              {nodeCategories.logic.map((template) => {
+                const Icon = template.icon
+                return (
+                  <div
+                    key={template.type}
+                    draggable
+                    onDragStart={(e) => onDragStart(e, template.type, template.label)}
+                    className={`flex items-center gap-1 px-2 py-1 rounded-md border-2 cursor-move transition-colors ${template.colorClass}`}
+                  >
+                    <Icon className={`h-3 w-3 ${template.iconColor}`} />
+                    <span className="text-xs font-medium">{template.label}</span>
+                  </div>
+                )
+              })}
             </div>
 
-            {/* Actions & Integrations */}
-            <div>
-              <h3 className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Actions & Integrations</h3>
-              <div className="flex flex-wrap gap-2">
-                {nodeCategories.actions.map((template) => {
-                  const Icon = template.icon
-                  return (
-                    <div
-                      key={template.type}
-                      draggable
-                      onDragStart={(e) => onDragStart(e, template.type, template.label)}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-md border-2 cursor-move transition-colors ${template.colorClass}`}
-                    >
-                      <Icon className={`h-4 w-4 ${template.iconColor}`} />
-                      <span className="text-xs font-medium">{template.label}</span>
-                    </div>
-                  )
-                })}
-              </div>
+            {/* Actions */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-muted-foreground font-semibold">Actions:</span>
+              {nodeCategories.actions.map((template) => {
+                const Icon = template.icon
+                return (
+                  <div
+                    key={template.type}
+                    draggable
+                    onDragStart={(e) => onDragStart(e, template.type, template.label)}
+                    className={`flex items-center gap-1 px-2 py-1 rounded-md border-2 cursor-move transition-colors ${template.colorClass}`}
+                  >
+                    <Icon className={`h-3 w-3 ${template.iconColor}`} />
+                    <span className="text-xs font-medium">{template.label}</span>
+                  </div>
+                )
+              })}
             </div>
           </div>
         </Card>

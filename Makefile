@@ -95,6 +95,10 @@ demo: ## Add demo examples for guaranteed outcomes (APPROVED, REVIEW, BLOCKED)
 	@echo "🎯 Adding demo examples..."
 	bash scripts/add-demo-examples.sh
 
+seed: ## 🚀 Quick demo seed - populates ALL data in under 1 minute
+	@echo "🚀 Seeding demo data (this takes ~30 seconds)..."
+	bash scripts/seed-demo.sh
+
 setup: install start db-migrate ## Complete setup (install + start + migrate)
 	@echo ""
 	@echo "✅ Setup complete!"

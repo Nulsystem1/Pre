@@ -1,13 +1,22 @@
 import { getPolicyPacks, createPolicyPack, supabase } from "@/lib/supabase"
+import type { PolicyPack } from "@/lib/types"
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    const { searchParams } = new URL(req.url)
+    const statusFilter = searchParams.get("status")
+
     // Get policy packs from Supabase
-    const packs = await getPolicyPacks()
+    let packs = await getPolicyPacks()
+
+    // Filter by status if provided
+    if (statusFilter) {
+      packs = packs.filter((pack: PolicyPack) => pack.status === statusFilter)
+    }
 
     // Get control counts for each pack
     const packsWithCounts = await Promise.all(
-      packs.map(async (pack) => {
+      packs.map(async (pack: PolicyPack) => {
         const { count } = await supabase
           .from("controls")
           .select("*", { count: "exact", head: true })
