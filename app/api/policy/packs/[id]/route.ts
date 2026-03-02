@@ -1,5 +1,5 @@
-import { getPolicyPackById, getControls, updatePolicyPack } from "@/lib/supabase"
-import { getGraph } from "@/lib/neo4j"
+import { getPolicyPackById, getControls, getPolicyChunks, updatePolicyPack, deleteReviewQueueCasesByPolicyPack, deleteCommandCenterResultsByPolicyPack, deletePolicyPack } from "@/lib/supabase"
+import { getGraph, deleteGraphByPolicyPack } from "@/lib/neo4j"
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -10,8 +10,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       return Response.json({ success: false, error: "Pack not found" }, { status: 404 })
     }
 
-    const packControls = await getControls(id)
-    const graph = await getGraph(id)
+    const [packControls, chunks, graph] = await Promise.all([
+      getControls(id),
+      getPolicyChunks(id),
+      getGraph(id),
+    ])
 
     return Response.json({
       success: true,
@@ -19,6 +22,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         ...pack,
         controls: packControls,
         graph,
+        chunks_count: chunks?.length ?? 0,
+        graph_nodes_count: graph?.nodes?.length ?? 0,
+        graph_edges_count: graph?.edges?.length ?? 0,
       },
     })
   } catch (error) {
@@ -51,5 +57,27 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   } catch (error) {
     console.error("Update pack error:", error)
     return Response.json({ success: false, error: "Failed to update pack" }, { status: 500 })
+  }
+}
+
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+
+  try {
+    const pack = await getPolicyPackById(id)
+    if (!pack) {
+      return Response.json({ success: false, error: "Pack not found" }, { status: 404 })
+    }
+
+    // Cascade: delete command center results, review-queue cases, and graph for this pack, then the pack
+    await deleteCommandCenterResultsByPolicyPack(id)
+    await deleteReviewQueueCasesByPolicyPack(id)
+    await deleteGraphByPolicyPack(id)
+    await deletePolicyPack(id)
+
+    return Response.json({ success: true, data: { id } })
+  } catch (error) {
+    console.error("Delete pack error:", error)
+    return Response.json({ success: false, error: "Failed to delete pack" }, { status: 500 })
   }
 }

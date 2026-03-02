@@ -4,6 +4,8 @@ import { getGraph } from "@/lib/neo4j"
 import { generateEmbedding } from "@/lib/embeddings"
 import { generateStructuredOutput } from "@/lib/openai-client"
 import { cosineSimilarity } from "@/lib/embeddings"
+import { applyConfidenceGuardrail } from "@/lib/decision-guardrails"
+import { buildReviewQueuePayload } from "@/lib/review-queue-payload"
 
 // Decision schema with confidence
 const decisionSchema = z.object({
@@ -23,15 +25,59 @@ const refinementSchema = z.object({
   reasoning: z.string(),
 })
 
+const HUMAN_REVIEW_THRESHOLD = 0.8 // Below 80% confidence → requires human review
+
 export async function POST(req: Request) {
   try {
-    const { eventType, eventData, policyPackId, confidenceThreshold = 0.7 } = await req.json()
+    const {
+      eventType,
+      eventData,
+      policyPackId,
+      confidenceThreshold = HUMAN_REVIEW_THRESHOLD,
+      additionalContext,
+    } = await req.json()
 
     if (!eventType || !eventData) {
       return Response.json(
         { success: false, error: "Missing eventType or eventData" },
         { status: 400 }
       )
+    }
+
+    // Guardrail: policy pack required for RAG
+    if (!policyPackId) {
+      return Response.json(
+        { success: false, error: "policyPackId is required for evaluation" },
+        { status: 400 }
+      )
+    }
+
+    // Require at least one ingested policy chunk (Linear RAG)
+    const allChunks = await getPolicyChunks(policyPackId)
+    if (allChunks.length === 0) {
+      return Response.json(
+        {
+          success: false,
+          error:
+            "No policy documents have been ingested for this policy pack. Add documents in Policy Studio and run Ingest before validating.",
+        },
+        { status: 400 }
+      )
+    }
+
+    // Normalize embedding (pg may return vector as string or array)
+    const toEmbedding = (c: (typeof allChunks)[0]): number[] | null => {
+      const e = c.embedding
+      if (Array.isArray(e)) return e as number[]
+      if (typeof e === "string") {
+        try {
+          const arr = JSON.parse(e) as unknown
+          return Array.isArray(arr) ? (arr as number[]) : null
+        } catch {
+          return null
+        }
+      }
+      return null
     }
 
     const maxAttempts = 3
@@ -61,30 +107,30 @@ export async function POST(req: Request) {
 
     // Agentic loop: Try up to 3 times with refined queries
     while (attempt <= maxAttempts) {
-      console.log(`\n🤖 Agent Attempt ${attempt}/${maxAttempts}`)
-      console.log(`Search query: ${eventDescription.substring(0, 100)}...`)
 
-      // Step 1: Generate embedding and retrieve policy chunks
+      // Step 1: Generate embedding and rank policy chunks (chunks already loaded above)
       const eventEmbedding = await generateEmbedding(eventDescription)
-      const allChunks = await getPolicyChunks(policyPackId)
-      
-      const rankedChunks = allChunks
-        .filter((chunk) => chunk.embedding && Array.isArray(chunk.embedding))
-        .map((chunk) => ({
+      const chunkEmbeddings = allChunks
+        .map((chunk) => ({ chunk, embedding: toEmbedding(chunk) }))
+        .filter((x): x is { chunk: (typeof allChunks)[0]; embedding: number[] } => x.embedding !== null)
+      const rankedChunks = chunkEmbeddings
+        .map(({ chunk, embedding }) => ({
           content: chunk.content,
           section_ref: chunk.section_ref,
-          similarity: cosineSimilarity(eventEmbedding, chunk.embedding!),
-          priority: chunk.metadata?.priority || "medium",
+          similarity: cosineSimilarity(eventEmbedding, embedding),
+          priority: (chunk.metadata as Record<string, string> | undefined)?.priority || "medium",
         }))
         .sort((a, b) => b.similarity - a.similarity)
         .slice(0, 5 + (attempt - 1) * 2) // Increase chunks with each attempt
 
-      // Step 2: AI Agent makes decision
+      // Step 2: AI Agent makes decision (with guardrails)
       const decision = await generateStructuredOutput({
         model: "gpt-5.1-2025-11-13",
         schema: decisionSchema,
-        maxTokens: 2000,
-        prompt: `You are an agentic compliance decision system (Attempt ${attempt}/${maxAttempts}).
+        maxTokens: 1500,
+        prompt: `GUARDRAILS: You are a compliance decision agent only. You must output ONLY a valid JSON decision. Do not include any narrative, advice, or content outside the schema. Base your decision solely on the event data and the policy context provided. Do not infer or invent policy.
+
+You are an agentic compliance decision system (Attempt ${attempt}/${maxAttempts}).
 
 # MANDATORY JSON OUTPUT FORMAT SCHEMA
 Analyze this event and provide a decision with confidence score.
@@ -92,6 +138,14 @@ Analyze this event and provide a decision with confidence score.
 EVENT:
 Type: ${eventType}
 Data: ${JSON.stringify(eventData, null, 2)}
+${typeof additionalContext === "string" && additionalContext.trim()
+  ? `
+
+SUPPLEMENTARY INFORMATION FROM REVIEWER (notes and uploaded documents — use this to re-check missing fields and recommended actions; it may satisfy gaps and increase confidence):
+---
+${additionalContext.trim()}
+---`
+  : ""}
 
 RELEVANT POLICY TEXT (Linear RAG - Top ${rankedChunks.length} matches):
 ${rankedChunks.map((c, i) => `${i + 1}. [${c.section_ref}] (similarity: ${c.similarity.toFixed(3)}, priority: ${c.priority})
@@ -115,12 +169,15 @@ INSTRUCTIONS:
 5. If confidence < ${confidenceThreshold}, list missing_information
 6. Cite specific matched_policies
 7. Suggest recommended_actions
+${typeof additionalContext === "string" && additionalContext.trim()
+  ? `
+When SUPPLEMENTARY INFORMATION is provided: re-evaluate against it. If it addresses previously missing fields or satisfies policy requirements, reduce missing_information accordingly and increase confidence. Update recommended_actions if the new information changes what is needed.`
+  : ""}
 
 Be honest about confidence - if policies are unclear or missing, set low confidence.`,
       })
 
-      console.log(`Decision: ${decision.outcome}, Confidence: ${decision.confidence}, Risk: ${decision.risk_score}`)
-
+     
       // Store best decision (highest confidence)
       if (!bestDecision || decision.confidence > bestDecision.confidence) {
         bestDecision = {
@@ -135,13 +192,11 @@ Be honest about confidence - if policies are unclear or missing, set low confide
 
       // Check if confident enough
       if (decision.confidence >= confidenceThreshold) {
-        console.log(`✅ Confident decision reached on attempt ${attempt}`)
         break
       }
 
       // If not last attempt, refine the query
       if (attempt < maxAttempts) {
-        console.log(`⚠️ Low confidence (${decision.confidence}), refining search...`)
         
         const refinement = await generateStructuredOutput({
           model: "gpt-5.1-2025-11-13",
@@ -167,7 +222,6 @@ Examples:
           // Use the first alternative query for next attempt
           eventDescription = refinement.alternative_queries[0]
           searchHistory.push(eventDescription)
-          console.log(`🔄 Refined query: ${eventDescription}`)
         } else {
           break // No refinement possible
         }
@@ -176,47 +230,66 @@ Examples:
       attempt++
     }
 
-    // Final decision logic
+    // Final decision logic (guardrail: low confidence → human review; APPROVED below threshold → REVIEW)
     const finalDecision = bestDecision
-    const requiresHumanReview = finalDecision.confidence < confidenceThreshold
-
-    // If confidence is too low, force REVIEW
-    if (requiresHumanReview && finalDecision.outcome === "APPROVED") {
-      finalDecision.outcome = "REVIEW"
+    const { outcome: guardrailOutcome, requiresHumanReview } = applyConfidenceGuardrail(
+      finalDecision.outcome,
+      finalDecision.confidence,
+      confidenceThreshold
+    )
+    finalDecision.outcome = guardrailOutcome
+    if (requiresHumanReview && guardrailOutcome === "REVIEW" && bestDecision.outcome === "APPROVED") {
       finalDecision.reasoning += `\n\n[SYSTEM]: Low confidence (${finalDecision.confidence.toFixed(2)} < ${confidenceThreshold}) - routing to human review.`
+    }
+
+    const missingInfo = finalDecision.missing_information || []
+    const reviewQueuePayload =
+      finalDecision.outcome === "REVIEW"
+        ? buildReviewQueuePayload("REVIEW", missingInfo)
+        : null
+
+    const data: Record<string, unknown> = {
+      event_type: eventType,
+      event_data: eventData,
+      outcome: finalDecision.outcome,
+      confidence: finalDecision.confidence,
+      risk_score: finalDecision.risk_score,
+      reasoning: finalDecision.reasoning,
+      matched_policies: finalDecision.matched_policies,
+      missing_information: missingInfo,
+      recommended_actions: finalDecision.recommended_actions || [],
+      agent_metadata: {
+        attempts: finalDecision.attempt,
+        total_attempts: maxAttempts,
+        confidence_threshold: confidenceThreshold,
+        requires_human_review: requiresHumanReview,
+        search_queries: finalDecision.search_queries_used,
+      },
+      rag_context: {
+        linear_rag_chunks: finalDecision.linear_rag_chunks,
+        graph_rag_nodes: finalDecision.graph_rag_nodes,
+        graph_rag_edges: finalDecision.graph_rag_edges,
+      },
+    }
+    if (reviewQueuePayload) {
+      data.review_queue_payload = reviewQueuePayload
     }
 
     return Response.json({
       success: true,
-      data: {
-        event_type: eventType,
-        event_data: eventData,
-        outcome: finalDecision.outcome,
-        confidence: finalDecision.confidence,
-        risk_score: finalDecision.risk_score,
-        reasoning: finalDecision.reasoning,
-        matched_policies: finalDecision.matched_policies,
-        missing_information: finalDecision.missing_information || [],
-        recommended_actions: finalDecision.recommended_actions || [],
-        agent_metadata: {
-          attempts: finalDecision.attempt,
-          total_attempts: maxAttempts,
-          confidence_threshold: confidenceThreshold,
-          requires_human_review: requiresHumanReview,
-          search_queries: finalDecision.search_queries_used,
-        },
-        rag_context: {
-          linear_rag_chunks: finalDecision.linear_rag_chunks,
-          graph_rag_nodes: finalDecision.graph_rag_nodes,
-          graph_rag_edges: finalDecision.graph_rag_edges,
-        },
-      },
+      data,
     })
   } catch (error) {
     console.error("Agentic decision evaluation error:", error)
+    const message = error instanceof Error ? error.message : String(error)
+    const isEmbeddingError =
+      /embedding|openai|api_key|rate limit/i.test(message) || message.includes("Failed to generate embedding")
+    const userError = isEmbeddingError
+      ? "Evaluation failed: embedding service error. Ensure OPENAI_API_KEY is set and that policy documents have been ingested for this policy pack (Policy Studio → Ingest)."
+      : "Failed to evaluate decision"
     return Response.json(
-      { success: false, error: "Failed to evaluate decision" },
-      { status: 500 }
+      { success: false, error: userError },
+      { status: isEmbeddingError ? 503 : 500 }
     )
   }
 }

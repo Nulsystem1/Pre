@@ -1,0 +1,37 @@
+# Fly.io app configuration - NUL Compliance Control Center
+# Replace 'nul-demo' with your preferred app name
+
+app = "nul-demo"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "3000"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 25
+    soft_limit = 20
+
+# Health check (optional - add /api/health for readiness)
+# [[http_service.checks]]
+#   grace_period = "5s"
+#   interval = "15s"
+#   method = "GET"
+#   path = "/api/health"
+#   timeout = "2s"
+
+# VM size - use shared-cpu-1x for free tier; scale up if needed
+[[vm]]
+  memory = "1gb"
+  cpu_kind = "shared"
+  cpus = 1

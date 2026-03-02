@@ -21,7 +21,7 @@ export default function SettingsPage() {
         name: "Sarah Chen",
         email: "sarah.chen@nulcompliance.io",
         role: "Senior Compliance Officer",
-        organization: "NUL Financial Services",
+        organization: "NUL Systems Production",
         department: "Risk & Compliance",
         phone: "+1 (555) 123-4567",
         timezone: "America/New_York",
@@ -32,7 +32,7 @@ export default function SettingsPage() {
       name: "Sarah Chen",
       email: "sarah.chen@nulcompliance.io",
       role: "Senior Compliance Officer",
-      organization: "NUL Financial Services",
+      organization: "NUL Systems Production",
       department: "Risk & Compliance",
       phone: "+1 (555) 123-4567",
       timezone: "America/New_York",
@@ -183,7 +183,7 @@ export default function SettingsPage() {
               </div>
 
               <div className="flex justify-end">
-                <Button onClick={handleSaveProfile} variant="outline">
+                <Button className="text-white/80 hover:text-white" onClick={handleSaveProfile} variant="outline">
                   <Save className="h-4 w-4 mr-2" />
                   Update Organization
                 </Button>
@@ -218,7 +218,7 @@ export default function SettingsPage() {
               </div>
 
               <div className="flex justify-end">
-                <Button onClick={handleSaveProfile} variant="outline">
+                <Button className="text-white/80 hover:text-white"onClick={handleSaveProfile} variant="outline">
                   <Save className="h-4 w-4 mr-2" />
                   Save Preferences
                 </Button>

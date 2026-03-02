@@ -5,8 +5,9 @@ import useSWR, { mutate } from "swr"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Sparkles, Upload, Loader2, Search, MessageSquare } from "lucide-react"
+import { Sparkles, Loader2, Search, MessageSquare } from "lucide-react"
 import { Input } from "@/components/ui/input"
+import { DocumentUpload } from "@/components/policy-studio/document-upload"
 import type { PolicyPack } from "@/lib/types"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
@@ -30,10 +31,8 @@ export function PolicyEditor({ selectedPackId }: PolicyEditorProps) {
   const pack: PolicyPack | null = packData?.data || null
 
   useEffect(() => {
-    if (pack?.raw_content) {
-      setPolicyText(pack.raw_content)
-    }
-  }, [pack])
+    setPolicyText(pack?.raw_content ?? "")
+  }, [selectedPackId, pack?.raw_content ?? ""])
 
   const handleIngest = async () => {
     if (!selectedPackId || !policyText.trim()) return
@@ -132,10 +131,14 @@ export function PolicyEditor({ selectedPackId }: PolicyEditorProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <DocumentUpload
+            onTextExtracted={setPolicyText}
+            disabled={isIngesting}
+          />
           <Textarea
             value={policyText}
             onChange={(e) => setPolicyText(e.target.value)}
-            placeholder="Paste your policy document here and click 'Ingest & Build Graph' to create Linear RAG (chunks) + Graph RAG (nodes & edges)..."
+            placeholder="Paste your policy document here or upload a .txt / .pdf above, then click 'Ingest & Build Graph'..."
             className="min-h-[300px] max-h-[500px] font-mono text-sm resize-y"
           />
           {pack && (
@@ -153,33 +156,7 @@ export function PolicyEditor({ selectedPackId }: PolicyEditorProps) {
         </CardContent>
       </Card>
 
-      {/* RAG Search */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base font-medium flex items-center gap-2">
-            <MessageSquare className="h-4 w-4" />
-            Ask About This Policy
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex gap-2">
-            <Input
-              placeholder="e.g., What is the threshold for high-risk vendors?"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            />
-            <Button onClick={handleSearch} disabled={isSearching || !searchQuery.trim()} size="icon">
-              {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-            </Button>
-          </div>
-          {searchResult && (
-            <div className="rounded-lg border bg-muted/50 p-4 text-sm">
-              <p>{searchResult}</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      
     </div>
   )
 }

@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react"
+import { DocumentUpload } from "@/components/policy-studio/document-upload"
 
 type Step = "details" | "text" | "extracting" | "review" | "complete"
 
@@ -233,17 +234,21 @@ export function IngestWizard({ open, onOpenChange, onComplete }: IngestWizardPro
         {step === "text" && (
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="policyText">Policy Document Text *</Label>
+              <Label>Policy Document Text *</Label>
+              <DocumentUpload
+                onTextExtracted={setPolicyText}
+                disabled={loading}
+              />
               <Textarea
                 id="policyText"
-                placeholder="Paste your policy document here..."
+                placeholder="Or paste your policy document here..."
                 value={policyText}
                 onChange={(e) => setPolicyText(e.target.value)}
-                rows={15}
+                rows={12}
                 className="font-mono text-sm"
               />
               <p className="text-xs text-muted-foreground">
-                Paste the full text of your policy document. The AI will extract rules and generate controls.
+                Upload a .txt or .pdf file, or paste the full text. The AI will extract rules and generate controls.
               </p>
             </div>
 

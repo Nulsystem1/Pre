@@ -315,6 +315,109 @@ See `scripts/001-create-tables.sql` for database schema.
    - Ensures most restrictive action wins
    - Prevents bypassing critical controls
 
+## Guardrails, Confidence Threshold, and Risk Implementation
+
+### Guardrails
+
+Guardrails constrain the AI and API so decisions stay within policy and schema.
+
+**1. Input guardrails (API)**
+
+- **Policy pack required**: `POST /api/decisions/evaluate-agentic` requires `policyPackId`. Without it, the API returns 400 and does not call the model. This forces every evaluation to be tied to a specific policy pack and its RAG context.
+
+**2. Prompt guardrails (agentic evaluation)**
+
+Used in the system prompt for the compliance decision agent (`app/api/decisions/evaluate-agentic/route.ts`):
+
+- **Role**: “You are a compliance decision agent only.”
+- **Output**: “You must output ONLY a valid JSON decision. Do not include any narrative, advice, or content outside the schema.”
+- **Scope**: “Base your decision solely on the event data and the policy context provided. Do not infer or invent policy.”
+
+So the model is instructed to stay in role, output only the decision schema, and not go beyond the given event + policy context.
+
+**3. Schema guardrails (structured output)**
+
+The decision is produced via structured output (e.g. Zod) so the shape and ranges are enforced:
+
+- `outcome`: enum `["APPROVED", "REVIEW", "BLOCKED"]`
+- `confidence`: number, min 0, max 1
+- `risk_score`: number, min 0, max 100
+- `reasoning`: string
+- `matched_policies`: array of strings
+- Optional: `missing_information`, `recommended_actions`
+
+Invalid or out-of-range values are rejected by the schema before they are returned to callers.
+
+---
+
+### Confidence threshold (how it’s used)
+
+The **confidence threshold** decides when a decision is treated as “confident enough” vs “needs human review.”
+
+**Default**
+
+- In agentic evaluation: `HUMAN_REVIEW_THRESHOLD = 0.8` (80%) in `app/api/decisions/evaluate-agentic/route.ts`.
+- Callers can override via request body: `confidenceThreshold` (e.g. Command Center sends `CONFIDENCE_THRESHOLD` 0.8; process-all and Settings can use 0.7 or a configurable value).
+
+**Where it’s applied**
+
+1. **Stopping the agentic loop**  
+   After each attempt, if `decision.confidence >= confidenceThreshold`, the loop stops and that decision is used. Otherwise the agent can refine the query and retry (up to 3 attempts).
+
+2. **Human-review flag**  
+   `requiresHumanReview = (finalDecision.confidence < confidenceThreshold)`. This is returned in `agent_metadata.requires_human_review` and drives UX (e.g. “needs review”).
+
+3. **Overriding APPROVED when confidence is low**  
+   If the final decision is `APPROVED` but `confidence < confidenceThreshold`, the outcome is **overridden to REVIEW** and a system line is appended to the reasoning:  
+   `[SYSTEM]: Low confidence (X.XX < threshold) - routing to human review.`
+
+So the threshold is used to:
+
+- Decide when to stop retrying and when to mark “requires human review.”
+- Force low-confidence approvals into REVIEW instead of auto-approving.
+
+**Where it’s configurable**
+
+- **Settings** (`app/(app)/settings/page.ts`): Agent settings expose a confidence threshold (e.g. slider); value is stored and can be sent to the agentic API.
+- **Command Center**: Uses a constant (e.g. 0.8) when calling evaluate-agentic; can be wired to Settings later.
+- **Process-all / process [id]**: Accept `confidence_threshold` in the request body (default 0.7 in process-all).
+
+---
+
+### Risk implementation (how risk is produced and used)
+
+**1. Agentic path (Command Center / evaluate-agentic)**
+
+- The AI returns a **risk_score** in the range **0–100** as part of the structured decision schema.
+- The prompt tells the model to “Calculate risk score (0-100).”
+- That value is returned in the API response and stored (e.g. in `command_center_results.risk_score` and in case `validation_result.risk_score`).
+- No formula is applied in code here; the number is whatever the model outputs within the schema.
+
+**2. Rule-based path (control evaluation)**
+
+- When using the control evaluation engine (`/api/controls/evaluate`), each **control** has a `risk_weight` in **[0.0, 1.0]**.
+- For each control whose JSON Logic condition matches the event, that control’s `risk_weight` is included.
+- **Composite risk** is computed as:  
+  `risk_score = average(triggered_controls.risk_weight) * 100`  
+  so the result is again in the **0–100** range.
+- Outcome is still determined by action priority (BLOCK > REVIEW > APPROVE), not by the risk number alone; risk is for severity/display and filtering.
+
+**3. Stored and displayed**
+
+- **Stored**: `risk_score` is persisted in command center results, review queue case `validation_result`, and audit/decision records.
+- **UI**:
+  - Command Center: shows “Risk: X/100” for each result.
+  - Audit Explorer: shows risk score and often color bands (e.g. high ≥70, medium ≥40).
+  - Review Queue (list and case detail): shows `validation_result.risk_score` (e.g. “X/100”).
+- **Filtering**: Review queue list can filter by “high risk” (e.g. `risk_score >= 50` in the API).
+
+**4. Control risk weights**
+
+- Controls are generated from the knowledge graph and each has a `risk_weight` (0.0–1.0).
+- That weight is used only in the rule-based evaluation path for the composite risk formula above; it is not sent to the agentic model. The agentic path uses the model’s own risk_score output.
+
+---
+
 ## Future Enhancements
 
 1. **Real-time Event Streaming**: WebSocket support for live events

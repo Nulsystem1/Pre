@@ -14,17 +14,17 @@ export async function GET(req: Request) {
       packs = packs.filter((pack: PolicyPack) => pack.status === statusFilter)
     }
 
-    // Get control counts for each pack
+    // Get control and chunk counts for each pack
     const packsWithCounts = await Promise.all(
       packs.map(async (pack: PolicyPack) => {
-        const { count } = await supabase
-          .from("controls")
-          .select("*", { count: "exact", head: true })
-          .eq("policy_pack_id", pack.id)
-
+        const [controlsRes, chunksRes] = await Promise.all([
+          supabase.from("controls").select("*", { count: "exact", head: true }).eq("policy_pack_id", pack.id),
+          supabase.from("policy_chunks").select("*", { count: "exact", head: true }).eq("policy_pack_id", pack.id),
+        ])
         return {
           ...pack,
-          controls_count: count || 0,
+          controls_count: controlsRes.count ?? 0,
+          chunks_count: chunksRes.count ?? 0,
         }
       })
     )

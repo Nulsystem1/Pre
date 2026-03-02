@@ -1,6 +1,6 @@
 "use client"
 
-import { ReviewQueue } from "@/components/review/review-queue"
+import { ReviewQueueCasesList } from "@/components/review/review-queue-cases-list"
 
 export default function ReviewQueuePage() {
   return (
@@ -8,11 +8,11 @@ export default function ReviewQueuePage() {
       <div>
         <h1 className="text-3xl font-bold">Review Queue</h1>
         <p className="text-muted-foreground">
-          Review and approve items that require human decision
+          Human review cases from Command Center. Open a case to add attachments (text, PDF, or CSV), generate additional document JSON, and approve, block, or escalate.
         </p>
       </div>
 
-      <ReviewQueue />
+      <ReviewQueueCasesList />
     </div>
   )
 }

@@ -23,10 +23,10 @@ CREATE TABLE IF NOT EXISTS pending_decisions (
 );
 
 -- Indexes for performance
-CREATE INDEX idx_pending_decisions_status ON pending_decisions(status);
-CREATE INDEX idx_pending_decisions_created_at ON pending_decisions(created_at DESC);
-CREATE INDEX idx_pending_decisions_priority ON pending_decisions(priority);
-CREATE INDEX idx_pending_decisions_policy_pack ON pending_decisions(policy_pack_id);
+CREATE INDEX IF NOT EXISTS idx_pending_decisions_status ON pending_decisions(status);
+CREATE INDEX IF NOT EXISTS idx_pending_decisions_created_at ON pending_decisions(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_pending_decisions_priority ON pending_decisions(priority);
+CREATE INDEX IF NOT EXISTS idx_pending_decisions_policy_pack ON pending_decisions(policy_pack_id);
 
 -- 2. Update decisions table with agent metadata
 ALTER TABLE decisions
@@ -36,10 +36,11 @@ ALTER TABLE decisions
   ADD COLUMN IF NOT EXISTS requires_human_review BOOLEAN DEFAULT false,
   ADD COLUMN IF NOT EXISTS agent_search_queries TEXT[];
 
--- 3. Rename cases to review_items (if not already done)
+-- 3. Rename cases to review_items only when review_items does not exist (001 creates both, so skip rename then)
 DO $$ 
 BEGIN
-  IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'cases') THEN
+  IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'cases')
+     AND NOT EXISTS (SELECT FROM pg_tables WHERE tablename = 'review_items') THEN
     ALTER TABLE cases RENAME TO review_items;
   END IF;
 END $$;

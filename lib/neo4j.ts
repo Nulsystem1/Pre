@@ -317,7 +317,7 @@ export async function initializeNeo4j(): Promise<void> {
       FOR ()-[r:GRAPH_RELATIONSHIP]-() REQUIRE r.id IS UNIQUE
     `)
 
-    console.log("Neo4j constraints and indexes created successfully")
+    
   } catch (error) {
     console.error("Error initializing Neo4j:", error)
     throw error

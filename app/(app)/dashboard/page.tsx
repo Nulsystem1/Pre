@@ -17,6 +17,7 @@ import {
 import Link from "next/link"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
+import type { AuditDecision } from "@/lib/types"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -24,19 +25,33 @@ export default function DashboardPage() {
   const { data: auditData, isLoading } = useSWR("/api/audit", fetcher, {
     refreshInterval: 5000,
   })
+  const { data: casesData } = useSWR("/api/review-queue/cases?limit=10", fetcher, {
+    refreshInterval: 5000,
+  })
 
-  const decisions = auditData?.data?.decisions || []
+  const decisions: AuditDecision[] = auditData?.data?.decisions ?? []
+  const recentCases = casesData?.data ?? []
+
+  // Same as Audit Explorer: count by Outcome (review queue result) when present, else by Status
+  const effectiveApproved = (d: AuditDecision) =>
+    d.review_queue_outcome === "Approved" || (!d.review_queue_outcome && d.outcome === "APPROVED")
+  const effectiveBlocked = (d: AuditDecision) =>
+    d.review_queue_outcome === "Blocked" || (!d.review_queue_outcome && d.outcome === "BLOCKED")
+  const effectiveReview = (d: AuditDecision) =>
+    d.review_queue_outcome === "Pending review" ||
+    d.review_queue_outcome === "Escalated" ||
+    (!d.review_queue_outcome && d.outcome === "REVIEW")
 
   const stats = {
     total_decisions: decisions.length,
-    approved: decisions.filter((d: any) => d.outcome === "APPROVED").length,
-    blocked: decisions.filter((d: any) => d.outcome === "BLOCKED").length,
-    review: decisions.filter((d: any) => d.outcome === "REVIEW").length,
+    approved: decisions.filter(effectiveApproved).length,
+    blocked: decisions.filter(effectiveBlocked).length,
+    review: decisions.filter(effectiveReview).length,
     pending: 0,
     avg_confidence: decisions.length > 0
-      ? Math.round(decisions.reduce((sum: number, d: any) => sum + (parseFloat(d.confidence) || 0), 0) / decisions.length * 100)
+      ? Math.round(decisions.reduce((sum, d) => sum + (d.confidence ?? 0), 0) / decisions.length * 100)
       : 0,
-    processing_today: decisions.filter((d: any) =>
+    processing_today: decisions.filter((d) =>
       new Date(d.created_at).toDateString() === new Date().toDateString()
     ).length,
   }
@@ -56,14 +71,14 @@ export default function DashboardPage() {
   }
 
   const decisionTrendData = getLast7Days().map((day) => {
-    const dayDecisions = decisions.filter((d: any) =>
+    const dayDecisions = decisions.filter((d) =>
       new Date(d.created_at).toDateString() === day.fullDate
     )
     return {
       date: day.date,
-      approved: dayDecisions.filter((d: any) => d.outcome === "APPROVED").length,
-      blocked: dayDecisions.filter((d: any) => d.outcome === "BLOCKED").length,
-      review: dayDecisions.filter((d: any) => d.outcome === "REVIEW").length,
+      approved: dayDecisions.filter(effectiveApproved).length,
+      blocked: dayDecisions.filter(effectiveBlocked).length,
+      review: dayDecisions.filter(effectiveReview).length,
     }
   })
 
@@ -93,10 +108,28 @@ export default function DashboardPage() {
     )
   }
 
-  // Get last 5 decisions
-  const recentDecisions = [...decisions]
-    .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .slice(0, 5)
+  // Live feed: last 5 cases (show case name + outcome); fallback to decisions if no cases
+  const liveFeedItems =
+    recentCases.length > 0
+      ? recentCases.slice(0, 5).map((c: any) => ({
+          id: c.id,
+          case_id: c.case_id,
+          name: c.name || c.case_id,
+          outcome: c.validation_result?.outcome ?? "REVIEW",
+          confidence: c.validation_result?.confidence ?? 0,
+          created_at: c.created_at,
+        }))
+      : [...decisions]
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          .slice(0, 5)
+          .map((d: AuditDecision) => ({
+            id: d.id,
+            case_id: null,
+            name: (d.event_data?.vendor_name as string | undefined) || (typeof d.event_data?.document_text === "string" ? d.event_data.document_text.slice(0, 40) : undefined) || "Decision",
+            outcome: d.outcome,
+            confidence: d.confidence,
+            created_at: d.created_at,
+          }))
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white p-8 font-sans selection:bg-blue-500/30">
@@ -104,14 +137,14 @@ export default function DashboardPage() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8 pb-6 border-b border-zinc-900">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-white flex items-center gap-3">
-            <Radar className="h-8 w-8 text-blue-500 animate-pulse" />
+            <Radar className="h-8 w-8 text-emerald-500 animate-pulse" />
             Command Center
           </h1>
           <p className="text-zinc-400 mt-2">Real-time operational feedback loop</p>
         </div>
         <div className="flex gap-3">
           <Link href="/command-center">
-            <Button className="bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/20 border-0">
+            <Button className="bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/20 border-0">
               <Zap className="h-4 w-4 mr-2" />
               Process Items
             </Button>
@@ -120,7 +153,7 @@ export default function DashboardPage() {
       </div>
 
       {/* KEY METRICS */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-8">
         <Card className="bg-zinc-900 border-zinc-800 text-white hover:border-zinc-700 transition-all">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-zinc-400">Total Volume</CardTitle>
@@ -158,11 +191,23 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-zinc-900 border-zinc-800 text-white hover:border-purple-500/30 transition-all relative overflow-hidden group">
-          <div className="absolute inset-0 bg-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+        <Card className="bg-zinc-900 border-zinc-800 text-white hover:border-amber-500/30 transition-all relative overflow-hidden group">
+          <div className="absolute inset-0 bg-amber-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-purple-400">Avg Confidence</CardTitle>
-            <BarChart3 className="h-4 w-4 text-purple-500" />
+            <CardTitle className="text-sm font-medium text-amber-400">Human review</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-amber-500" />
+          </CardHeader>
+          <CardContent className="relative z-10">
+            <div className="text-2xl font-bold text-white">{stats.review}</div>
+            <p className="text-xs text-zinc-500 mt-1">Needs manual review</p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-zinc-900 border-zinc-800 text-white hover:border-emerald-500/30 transition-all relative overflow-hidden group">
+          <div className="absolute inset-0 bg-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-emerald-400">Avg Confidence</CardTitle>
+            <BarChart3 className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent className="relative z-10">
             <div className="text-2xl font-bold">{stats.avg_confidence}%</div>
@@ -220,39 +265,33 @@ export default function DashboardPage() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base text-white flex items-center gap-2">
-                  <Activity className="h-4 w-4 text-blue-500" /> Live Feed
+                  <Activity className="h-4 w-4 text-emerald-500" /> Live Feed
                 </CardTitle>
-                <Link href="/audit-explorer" className="text-xs text-blue-400 hover:text-blue-300 transition-colors flex items-center">
+                <Link href="/audit-explorer" className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors flex items-center">
                   View All <ArrowUpRight className="h-3 w-3 ml-1" />
                 </Link>
               </div>
             </CardHeader>
             <CardContent className="flex-1">
               <div className="space-y-4">
-                {recentDecisions.length > 0 ? (
-                  recentDecisions.map((decision: any) => (
-                    <div key={decision.id} className="flex items-center justify-between border-b border-zinc-800 pb-3 last:border-0 last:pb-0 group hover:bg-zinc-800/50 p-2 rounded transition-colors -mx-2">
-                      <div className="flex items-center gap-3">
-                        <div className={`h-8 w-8 rounded-full flex items-center justify-center border ${decision.outcome === 'APPROVED' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' :
-                            decision.outcome === 'BLOCKED' ? 'bg-red-500/10 border-red-500/20 text-red-500' :
-                              'bg-amber-500/10 border-amber-500/20 text-amber-500'
-                          }`}>
-                          {decision.outcome === 'APPROVED' ? <CheckCircle2 className="h-4 w-4" /> :
-                            decision.outcome === 'BLOCKED' ? <XCircle className="h-4 w-4" /> :
-                              <AlertTriangle className="h-4 w-4" />}
+                {liveFeedItems.length > 0 ? (
+                  liveFeedItems.map((item: any) => (
+                    <Link key={item.id} href={item.case_id ? `/review-queue/cases/${item.id}` : "/audit-explorer"}>
+                      <div className="flex items-center justify-between border-b border-zinc-800 pb-3 last:border-0 last:pb-0 group hover:bg-zinc-800/50 p-2 rounded transition-colors -mx-2">
+                        <div className="flex items-center gap-3">
+                          <div className={`h-8 w-8 rounded-full flex items-center justify-center border ${item.outcome === "APPROVED" ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500" : item.outcome === "BLOCKED" ? "bg-red-500/10 border-red-500/20 text-red-500" : "bg-amber-500/10 border-amber-500/20 text-amber-500"}`}>
+                            {item.outcome === "APPROVED" ? <CheckCircle2 className="h-4 w-4" /> : item.outcome === "BLOCKED" ? <XCircle className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+                          </div>
+                          <div className="grid gap-0.5">
+                            <p className="text-sm font-medium leading-none text-zinc-200">{item.name}</p>
+                            <p className="text-xs text-zinc-500">{new Date(item.created_at).toLocaleTimeString()}</p>
+                          </div>
                         </div>
-                        <div className="grid gap-0.5">
-                          <p className="text-sm font-medium leading-none text-zinc-200">{decision.event?.payload?.vendor_name || "Unknown Vendor"}</p>
-                          <p className="text-xs text-zinc-500">{new Date(decision.created_at).toLocaleTimeString()}</p>
-                        </div>
+                        <Badge variant="outline" className={`border-0 ${item.outcome === "APPROVED" ? "bg-emerald-500/10 text-emerald-400" : item.outcome === "BLOCKED" ? "bg-red-500/10 text-red-400" : "bg-amber-500/10 text-amber-400"}`}>
+                          {((item.confidence ?? 0) * 100).toFixed(0)}%
+                        </Badge>
                       </div>
-                      <Badge variant="outline" className={`border-0 ${decision.outcome === 'APPROVED' ? 'bg-emerald-500/10 text-emerald-400' :
-                          decision.outcome === 'BLOCKED' ? 'bg-red-500/10 text-red-400' :
-                            'bg-amber-500/10 text-amber-400'
-                        }`}>
-                        {(decision.confidence * 100).toFixed(0)}%
-                      </Badge>
-                    </div>
+                    </Link>
                   ))
                 ) : (
                   <div className="text-center py-12 text-zinc-600 flex flex-col items-center">

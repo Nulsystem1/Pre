@@ -317,9 +317,10 @@ export const controls: Control[] = [
     risk_weight: 1.0,
     enabled: true,
     source_node_ids: ["node-1", "node-2"],
-    ai_reasoning:
-      "Policy Section 1 mandates that all customers must have verified government ID. Automatic block prevents unauthorized account creation.",
+    ai_reasoning: "Policy Section 1 mandates that all customers must have verified government ID. Automatic block prevents unauthorized account creation.",
     created_at: "2025-01-12T14:30:00Z",
+    execution_target_id: null,
+    confidence_threshold: 0
   },
   {
     id: "ctrl-2",
@@ -335,9 +336,10 @@ export const controls: Control[] = [
     risk_weight: 0.7,
     enabled: true,
     source_node_ids: ["node-3", "node-4", "node-5"],
-    ai_reasoning:
-      "Policy Section 2 requires address verification for elevated risk customers. Review action allows analyst to request documentation.",
+    ai_reasoning: "Policy Section 2 requires address verification for elevated risk customers. Review action allows analyst to request documentation.",
     created_at: "2025-01-12T14:30:00Z",
+    execution_target_id: null,
+    confidence_threshold: 0
   },
   {
     id: "ctrl-3",
@@ -353,9 +355,10 @@ export const controls: Control[] = [
     risk_weight: 0.9,
     enabled: true,
     source_node_ids: ["node-6", "node-7"],
-    ai_reasoning:
-      "Policy Section 3 requires enhanced due diligence for high-risk jurisdictions. FATF grey list countries trigger manual review.",
+    ai_reasoning: "Policy Section 3 requires enhanced due diligence for high-risk jurisdictions. FATF grey list countries trigger manual review.",
     created_at: "2025-01-12T14:30:00Z",
+    execution_target_id: null,
+    confidence_threshold: 0
   },
   {
     id: "ctrl-4",
@@ -371,9 +374,10 @@ export const controls: Control[] = [
     risk_weight: 1.0,
     enabled: true,
     source_node_ids: ["node-8", "node-9"],
-    ai_reasoning:
-      "Policy Section 4 prohibits accounts for minors. This is a regulatory requirement with no exceptions.",
+    ai_reasoning: "Policy Section 4 prohibits accounts for minors. This is a regulatory requirement with no exceptions.",
     created_at: "2025-01-12T14:30:00Z",
+    execution_target_id: null,
+    confidence_threshold: 0
   },
   {
     id: "ctrl-5",
@@ -389,9 +393,10 @@ export const controls: Control[] = [
     risk_weight: 0.85,
     enabled: true,
     source_node_ids: ["node-10", "node-11", "node-7"],
-    ai_reasoning:
-      "Policy Section 6 requires enhanced due diligence for PEP customers. High confidence matches escalate to compliance team.",
+    ai_reasoning: "Policy Section 6 requires enhanced due diligence for PEP customers. High confidence matches escalate to compliance team.",
     created_at: "2025-01-12T14:30:00Z",
+    execution_target_id: null,
+    confidence_threshold: 0
   },
   {
     id: "ctrl-6",
@@ -407,9 +412,10 @@ export const controls: Control[] = [
     risk_weight: 0.75,
     enabled: true,
     source_node_ids: [],
-    ai_reasoning:
-      "AML Policy Section 1 monitors for unusual transaction velocity. Sudden spikes may indicate account takeover or money laundering.",
+    ai_reasoning: "AML Policy Section 1 monitors for unusual transaction velocity. Sudden spikes may indicate account takeover or money laundering.",
     created_at: "2025-01-09T16:00:00Z",
+    execution_target_id: null,
+    confidence_threshold: 0
   },
   {
     id: "ctrl-7",
@@ -431,6 +437,8 @@ export const controls: Control[] = [
     source_node_ids: [],
     ai_reasoning: "AML Policy Section 3 requires enhanced scrutiny for high-value transfers to risky destinations.",
     created_at: "2025-01-09T16:00:00Z",
+    execution_target_id: null,
+    confidence_threshold: 0
   },
   {
     id: "ctrl-8",
@@ -449,9 +457,10 @@ export const controls: Control[] = [
     risk_weight: 1.0,
     enabled: true,
     source_node_ids: [],
-    ai_reasoning:
-      "Sanctions Policy Section 5 mandates blocking all transactions involving OFAC sanctioned countries. No exceptions.",
+    ai_reasoning: "Sanctions Policy Section 5 mandates blocking all transactions involving OFAC sanctioned countries. No exceptions.",
     created_at: "2025-01-06T09:00:00Z",
+    execution_target_id: null,
+    confidence_threshold: 0
   },
 ]
 

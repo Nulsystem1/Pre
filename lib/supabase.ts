@@ -3,14 +3,18 @@
 import { Pool } from "pg"
 import type { Database } from "./database.types"
 
-if (!process.env.POSTGRES_URL) {
-  throw new Error("Missing POSTGRES_URL environment variable")
+// Lazy pool so Next.js build can run without POSTGRES_URL (e.g. Docker build on Fly.io)
+let pool: Pool | null = null
+function getPool(): Pool {
+  if (!pool) {
+    if (!process.env.POSTGRES_URL) {
+      throw new Error("Missing POSTGRES_URL environment variable")
+    }
+    pool = new Pool({ connectionString: process.env.POSTGRES_URL })
+  }
+  return pool
 }
 
-// Direct Postgres connection pool
-const pool = new Pool({
-  connectionString: process.env.POSTGRES_URL,
-})
 
 // For direct Postgres connection
 export const getPostgresUrl = () => process.env.POSTGRES_URL!
@@ -18,7 +22,7 @@ export const getPostgresUrl = () => process.env.POSTGRES_URL!
 // Helper to execute direct SQL queries
 export async function query(sql: string, params: unknown[] = []) {
   try {
-    const result = await pool.query(sql, params)
+    const result = await getPool().query(sql, params)
     return { data: result.rows, error: null, count: result.rows.length }
   } catch (error) {
     return { data: null, error, count: 0 }
@@ -57,7 +61,16 @@ const createSupabaseLikeClient = () => {
             return { data: result.data?.[0] || null, error: null }
           },
           async then(resolve: (value: any) => any) {
-            if (options?.head) {
+            if (options?.head && options?.count === "exact") {
+              const countSql = sql.replace(/^SELECT \* FROM/i, "SELECT COUNT(*)::int AS count FROM")
+              const result = await query(countSql, params)
+              if (result.error) {
+                resolve({ count: 0, error: result.error })
+              } else {
+                const count = result.data?.[0]?.count ?? 0
+                resolve({ count: Number(count), error: null })
+              }
+            } else if (options?.head) {
               resolve({ count: 0, error: null })
             } else {
               const result = await query(sql, params)
@@ -347,7 +360,48 @@ export async function deleteControlsByPolicyPack(policyPackId: string) {
     .from("controls")
     .delete()
     .eq("policy_pack_id", policyPackId)
-  
+
+  const { error } = await Promise.resolve(result)
+  if (error) throw error
+}
+
+/** Delete all review queue cases that reference this policy pack (cascade on pack delete) */
+export async function deleteReviewQueueCasesByPolicyPack(policyPackId: string) {
+  const result = await supabase
+    .from("review_queue_cases")
+    .delete()
+    .eq("policy_pack_id", policyPackId)
+
+  const { error } = await Promise.resolve(result)
+  if (error) throw error
+}
+
+/** Delete review queue cases that reference this command center result (cascade on result delete) */
+export async function deleteReviewQueueCasesByCommandCenterResultId(commandCenterResultId: string) {
+  const result = await supabase
+    .from("review_queue_cases")
+    .delete()
+    .eq("command_center_result_id", commandCenterResultId)
+
+  const { error } = await Promise.resolve(result)
+  if (error) throw error
+}
+
+/** Delete all command center results that reference this policy pack (cascade on pack delete) */
+export async function deleteCommandCenterResultsByPolicyPack(policyPackId: string) {
+  const { error } = await query(
+    "DELETE FROM command_center_results WHERE policy_pack_id = $1",
+    [policyPackId]
+  )
+  if (error) throw error
+}
+
+export async function deletePolicyPack(id: string) {
+  const result = await supabase
+    .from("policy_packs")
+    .delete()
+    .eq("id", id)
+
   const { error } = await Promise.resolve(result)
   if (error) throw error
 }

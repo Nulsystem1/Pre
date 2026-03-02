@@ -88,19 +88,6 @@ export interface ExecutionTarget {
 
 export type ControlAction = "APPROVE" | "REVIEW" | "BLOCK"
 
-export interface JSONLogicCondition {
-  and?: JSONLogicCondition[]
-  or?: JSONLogicCondition[]
-  "=="?: [unknown, unknown]
-  "!="?: [unknown, unknown]
-  ">"?: [unknown, unknown]
-  ">="?: [unknown, unknown]
-  "<"?: [unknown, unknown]
-  "<="?: [unknown, unknown]
-  in?: [unknown, unknown[]]
-  var?: string
-  [key: string]: unknown
-}
 
 export interface Control {
   id: string
@@ -108,7 +95,6 @@ export interface Control {
   control_id: string // e.g., "KYC-001"
   name: string
   description: string | null
-  condition: JSONLogicCondition
   condition_readable: string // Human-readable version
   action: ControlAction
   risk_weight: number
@@ -121,45 +107,14 @@ export interface Control {
 }
 
 // ============================================
-// Event Types (for simulation)
+// Event (generic; payload shape is not fixed)
 // ============================================
-
-export type EventType = "ONBOARDING" | "TRANSACTION" | "ACCOUNT_UPDATE" | "KYC_REFRESH"
-
-export interface CustomerData {
-  customer_id: string
-  name: string
-  email?: string
-  country: string
-  is_pep: boolean
-  pep_match_confidence?: number
-  id_verified: boolean
-  address_verified: boolean
-  age: number
-  risk_score: number
-  account_type: "personal" | "business"
-  source_of_funds?: string
-  occupation?: string
-  created_at: string
-}
-
-export interface TransactionData {
-  transaction_id: string
-  customer_id: string
-  amount: number
-  currency: string
-  type: "wire_transfer" | "card_payment" | "ach" | "internal"
-  destination_country?: string
-  destination_account?: string
-  merchant_category?: string
-  timestamp: string
-}
 
 export interface Event {
   id: string
-  event_type: EventType
+  event_type: string
   entity_id: string
-  payload: CustomerData | TransactionData | Record<string, unknown>
+  payload: Record<string, unknown>
   received_at: string
 }
 
@@ -167,7 +122,84 @@ export interface Event {
 // Decision & Audit Types
 // ============================================
 
+/** Outcome of a compliance decision (agent or rule-based). */
 export type DecisionOutcome = "APPROVED" | "REVIEW" | "BLOCKED"
+
+/** How the decision was made: automated (above confidence threshold) or sent to human review. */
+export type DecisionType = "AUTOMATED" | "HUMAN_REVIEW"
+
+/** Compliance slot status for review_queue_payload (when outcome is HUMAN_REVIEW). */
+export type ComplianceStatus = "SATISFIED" | "NOT_SATISFIED" | "UNKNOWN" | "NOT_APPLICABLE"
+
+/** Compliance slots attached when outcome is REVIEW (human review). */
+export interface ReviewQueueComplianceSlots {
+  documentation: ComplianceStatus
+  authority: ComplianceStatus
+  eligibility: ComplianceStatus
+  provider: ComplianceStatus
+  cost_time: ComplianceStatus
+  service_obligation: ComplianceStatus
+  classification: ComplianceStatus
+}
+
+/** Payload attached to evaluation response when outcome is REVIEW (human review). */
+export interface ReviewQueuePayload {
+  compliance_slots: ReviewQueueComplianceSlots
+  decision: "HUMAN_REVIEW"
+  missing_information: string[]
+}
+
+/**
+ * Decision record as returned by the audit API and used in Audit Explorer and Dashboard.
+ * Sourced from command_center_results (and equivalent in-memory or DB).
+ */
+export interface AuditDecision {
+  id: string
+  created_at: string
+  event_type: string
+  event_data: Record<string, unknown>
+  outcome: DecisionOutcome
+  confidence: number
+  risk_score: number
+  reasoning: string
+  agent_attempts?: number
+  requires_human_review?: boolean
+  matched_conditions?: string[] | Array<{ node: string; relationship?: string; target?: string }>
+  agent_queries_used?: string[]
+  /** Result from review queue when a case exists: e.g. Approved, Blocked, Escalated, Pending review. */
+  review_queue_outcome?: string | null
+  /** Confidence from the validation engine (status). */
+  status_confidence?: number
+  /** Confidence from the review queue outcome (e.g. after re-run); used as primary when present. */
+  outcome_confidence?: number | null
+}
+
+/**
+ * Decision result from Command Center validation (evaluate-agentic response, saved to results).
+ * Richer than AuditDecision; normalized to AuditDecision when returned by GET /api/audit.
+ */
+export interface CommandCenterDecisionResult {
+  id: string
+  event_type: string
+  event_data: Record<string, unknown>
+  outcome: DecisionOutcome
+  confidence: number
+  risk_score: number
+  reasoning: string
+  matched_policies: string[]
+  recommended_actions?: string[]
+  missing_information?: string[]
+  agent_metadata?: {
+    requires_human_review: boolean
+    attempts: number
+    search_queries?: string[]
+    confidence_threshold?: number
+  }
+  policy_pack_id: string
+  policy_pack_name: string
+  policy_version: string
+  validated_at: string
+}
 
 export interface Decision {
   id: string
@@ -187,6 +219,8 @@ export interface AuditRecord {
   time: string
   event: Event
   decision: Decision
+  decision_outcome: DecisionOutcome
+  decision_type: DecisionType
   controls_evaluated: string[]
   controls_triggered: string[]
   processing_time_ms: number
@@ -215,28 +249,53 @@ export interface Case {
 }
 
 // ============================================
-// Review Item Types
+// Review Queue Case (Human Review from Command Center)
 // ============================================
 
-export type ReviewItemStatus = "pending" | "approved" | "overridden" | "escalated"
-export type ReviewerAction = "approve" | "override" | "escalate" | null
+export type ReviewQueueCaseStatus = "IN_REVIEW" | "ESCALATED" | "NEEDS_INFO" | "FINALIZED"
 
-export interface ReviewItem {
+export type CaseAttachmentType = "SF_182" | "CSA" | "EMERGENCY_MEMO" | "IDP" | "OTHER"
+
+export interface CaseAttachment {
+  type: CaseAttachmentType
+  file_id?: string
+  description?: string
+  uploaded_by: string
+  uploaded_at: string
+}
+
+export interface ReviewQueueCaseValidationResult {
+  event_type: string
+  policy_pack_name: string
+  policy_version: string
+  outcome: string
+  decision_type: string
+  risk_score: number
+  confidence: number
+  event_data?: Record<string, unknown>
+  explanations?: { bullets: string[] }
+  matched_policies?: Array<{ node: string; relationship?: string; target?: string }>
+  review?: {
+    reasons: Record<string, string>
+    policy_implications?: string[]
+    recommended_actions?: unknown[]
+    missing_fields?: string[]
+    not_fulfilled?: string[]
+  }
+}
+
+export interface ReviewQueueCase {
   id: string
-  decision_id: string
-  event_id: string
-  control_id: string | null
-  entity_id: string
-  entity_name: string | null
-  confidence_score: number
-  recommended_action: string
-  reasoning: string | null
-  status: ReviewItemStatus
-  reviewer_action: ReviewerAction
-  reviewer_notes: string | null
-  reviewed_by: string | null
+  case_id: string
+  status: ReviewQueueCaseStatus
+  assigned_to: string | null
+  validation_result: ReviewQueueCaseValidationResult
+  attachments: CaseAttachment[]
+  audit_log: Array<{ timestamp: string; action: string; actor: string; details?: unknown }>
+  structured_edits?: Record<string, unknown>
+  command_center_result_id?: string | null
   created_at: string
-  reviewed_at: string | null
+  updated_at: string
 }
 
 // ============================================
@@ -278,14 +337,3 @@ export interface ControlGenerationResult {
   generation_time_ms: number
 }
 
-export interface EventSimulationResult {
-  event: Event
-  decisions: Decision[]
-  final_outcome: DecisionOutcome
-  confidence_score: number
-  routing: "auto_execute" | "human_review"
-  execution_payload?: Record<string, unknown>
-  review_item_id?: string
-  case_created: boolean
-  case_id?: string
-}
