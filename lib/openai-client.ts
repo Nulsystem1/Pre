@@ -2,13 +2,22 @@ import OpenAI from "openai"
 import { z } from "zod"
 import { zodToJsonSchema } from "zod-to-json-schema"
 
-if (!process.env.OPENAI_API_KEY) {
-  throw new Error("Missing OPENAI_API_KEY environment variable")
-}
+let openaiInstance: OpenAI | null = null
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+/**
+ * Lazy OpenAI client: created on first use at runtime.
+ * Validates OPENAI_API_KEY only when called (not at import), so next build won't fail when the key is missing.
+ */
+export function getOpenAIClient(): OpenAI {
+  const apiKey = process.env.OPENAI_API_KEY
+  if (!apiKey) {
+    throw new Error("Missing OPENAI_API_KEY environment variable")
+  }
+  if (!openaiInstance) {
+    openaiInstance = new OpenAI({ apiKey })
+  }
+  return openaiInstance
+}
 
 /**
  * Recursively add additionalProperties: false and required fields to all objects in JSON Schema
@@ -69,7 +78,7 @@ export async function generateStructuredOutput<T extends z.ZodTypeAny>({
     $refStrategy: "none",
   }) as any
 
-  const response = await openai.chat.completions.create({
+  const response = await getOpenAIClient().chat.completions.create({
     model,
     messages: [
       {
@@ -130,7 +139,7 @@ export async function generateText({
   maxTokens?: number
   temperature?: number
 }): Promise<string> {
-  const response = await openai.chat.completions.create({
+  const response = await getOpenAIClient().chat.completions.create({
     model,
     messages: [
       {

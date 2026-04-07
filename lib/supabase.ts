@@ -365,6 +365,16 @@ export async function deleteControlsByPolicyPack(policyPackId: string) {
   if (error) throw error
 }
 
+export async function deletePolicyChunksByPolicyPack(policyPackId: string) {
+  const result = await supabase
+    .from("policy_chunks")
+    .delete()
+    .eq("policy_pack_id", policyPackId)
+
+  const { error } = await Promise.resolve(result)
+  if (error) throw error
+}
+
 /** Delete all review queue cases that reference this policy pack (cascade on pack delete) */
 export async function deleteReviewQueueCasesByPolicyPack(policyPackId: string) {
   const result = await supabase

@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { GeistSans } from "geist/font/sans"
 import { GeistMono } from "geist/font/mono"
 import { Analytics } from "@vercel/analytics/next"
+import { OrganizationProvider } from "@/lib/organization-context"
 import "./globals.css"
 
 // <CHANGE> Updated metadata for NUL Compliance Control Center
@@ -21,7 +22,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={`dark ${GeistSans.variable} ${GeistMono.variable}`}>
       <body className="font-sans antialiased">
-        {children}
+        <OrganizationProvider>
+          {children}
+        </OrganizationProvider>
         <Analytics />
       </body>
     </html>

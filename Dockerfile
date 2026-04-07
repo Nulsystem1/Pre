@@ -2,14 +2,16 @@
 # Uses Next.js standalone output for minimal image size
 
 FROM node:20-alpine AS base
+WORKDIR /app
+
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 
 # Install dependencies
 FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 COPY package.json pnpm-lock.yaml* ./
-RUN corepack enable pnpm && pnpm install --frozen-lockfile
-
+RUN pnpm install --frozen-lockfile
 # Build the application
 FROM base AS builder
 WORKDIR /app

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { query } from "@/lib/supabase"
+import { getCachedJson, setCachedJson } from "@/lib/redis"
 
 /**
  * GET /api/stats
@@ -10,6 +11,12 @@ export async function GET(req: Request) {
     try {
         const { searchParams } = new URL(req.url)
         const role = searchParams.get("role") || "operator"
+        const cacheKey = `stats:${role}`
+
+        const cached = await getCachedJson<{ success: boolean; data: unknown }>(cacheKey)
+        if (cached) {
+            return NextResponse.json(cached)
+        }
 
         // Get decision counts
         const decisionsResult = await query(`
@@ -113,7 +120,9 @@ export async function GET(req: Request) {
             trends: trendsResult.data || [],
         }
 
-        return NextResponse.json({ success: true, data: stats })
+        const payload = { success: true, data: stats }
+        await setCachedJson(cacheKey, payload, 30)
+        return NextResponse.json(payload)
     } catch (error) {
         console.error("Error fetching stats:", error)
         return NextResponse.json(

@@ -14,6 +14,8 @@ const autofillSchema = z.object({
   reasoning: z.string(),
 })
 
+export const runtime = "nodejs"
+
 export async function POST(req: Request) {
   try {
     const { partial_input } = await req.json()

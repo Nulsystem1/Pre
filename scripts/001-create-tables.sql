@@ -230,3 +230,22 @@ CREATE TABLE IF NOT EXISTS graph_edges (
 CREATE INDEX IF NOT EXISTS idx_graph_edges_policy_pack ON graph_edges(policy_pack_id);
 CREATE INDEX IF NOT EXISTS idx_graph_edges_source ON graph_edges(source_node_id);
 CREATE INDEX IF NOT EXISTS idx_graph_edges_target ON graph_edges(target_node_id);
+
+-- ============================================
+-- Unified Auth Tokens Table (Email Verify + Password Reset)
+-- ============================================
+CREATE TABLE IF NOT EXISTS auth_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  email TEXT NOT NULL,
+  token_hash TEXT NOT NULL UNIQUE,
+  type TEXT NOT NULL CHECK (type IN ('VERIFY_EMAIL', 'RESET_PASSWORD')),
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  CHECK (expires_at > created_at)
+);
+
+CREATE INDEX IF NOT EXISTS idx_auth_tokens_type_email ON auth_tokens(type, email);
+CREATE INDEX IF NOT EXISTS idx_auth_tokens_expires ON auth_tokens(expires_at);
+CREATE INDEX IF NOT EXISTS idx_auth_tokens_unused ON auth_tokens(used_at);

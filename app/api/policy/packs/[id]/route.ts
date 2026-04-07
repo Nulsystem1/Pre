@@ -1,4 +1,4 @@
-import { getPolicyPackById, getControls, getPolicyChunks, updatePolicyPack, deleteReviewQueueCasesByPolicyPack, deleteCommandCenterResultsByPolicyPack, deletePolicyPack } from "@/lib/supabase"
+import { getPolicyPackById, getControls, getPolicyChunks, updatePolicyPack, deleteReviewQueueCasesByPolicyPack, deleteCommandCenterResultsByPolicyPack, deleteControlsByPolicyPack, deletePolicyChunksByPolicyPack, deletePolicyPack } from "@/lib/supabase"
 import { getGraph, deleteGraphByPolicyPack } from "@/lib/neo4j"
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -69,10 +69,12 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       return Response.json({ success: false, error: "Pack not found" }, { status: 404 })
     }
 
-    // Cascade: delete command center results, review-queue cases, and graph for this pack, then the pack
+    // Cascade: delete command center results, review-queue cases, graph, controls, chunks, and then the pack itself
     await deleteCommandCenterResultsByPolicyPack(id)
     await deleteReviewQueueCasesByPolicyPack(id)
     await deleteGraphByPolicyPack(id)
+    await deleteControlsByPolicyPack(id)
+    await deletePolicyChunksByPolicyPack(id)
     await deletePolicyPack(id)
 
     return Response.json({ success: true, data: { id } })

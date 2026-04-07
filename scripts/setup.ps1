@@ -63,16 +63,8 @@ docker compose exec -T neo4j cypher-shell -u neo4j -p neo4jpassword -f /var/lib/
 Write-Host "Neo4j initialized" -ForegroundColor Green
 Write-Host ""
 
-Write-Host "Step 5: Running Postgres migrations" -ForegroundColor Blue
-if (Test-Path scripts/004-command-center-results.sql) {
-    Get-Content scripts/004-command-center-results.sql -Raw | docker compose exec -T postgres psql -U postgres -d postgres
-}
-if (Test-Path scripts/005-review-queue-cases.sql) {
-    Get-Content scripts/005-review-queue-cases.sql -Raw | docker compose exec -T postgres psql -U postgres -d postgres
-}
-if (Test-Path scripts/006-review-queue-cases-name.sql) {
-    Get-Content scripts/006-review-queue-cases-name.sql -Raw | docker compose exec -T postgres psql -U postgres -d postgres
-}
+Write-Host "Step 5: Running Postgres migrations (ordered: auth core, app tables, MVP alters)" -ForegroundColor Blue
+& "$PSScriptRoot/apply-postgres-schema.ps1"
 Write-Host "Migrations applied" -ForegroundColor Green
 Write-Host ""
 
@@ -85,7 +77,7 @@ Write-Host ""
 Write-Host "Setup complete!" -ForegroundColor Green
 Write-Host ""
 Write-Host "Infrastructure is running:"
-Write-Host "  - Postgres: postgresql://postgres:postgres@localhost:5432/postgres"
+Write-Host "  - Postgres: postgresql://postgres:postgres@localhost:5434/postgres"
 Write-Host "  - PostgREST: http://localhost:3000"
 Write-Host "  - Neo4j Browser: http://localhost:7474 (neo4j / neo4jpassword)"
 Write-Host "  - Neo4j Bolt: bolt://localhost:7687"

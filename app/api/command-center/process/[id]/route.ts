@@ -21,6 +21,8 @@ const refinementSchema = z.object({
   reasoning: z.string(),
 })
 
+export const runtime = "nodejs"
+
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const { confidenceThreshold = 0.7 } = await req.json()

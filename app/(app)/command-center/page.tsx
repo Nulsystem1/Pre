@@ -512,7 +512,7 @@ export default function CommandCenterPage() {
       <div>
         <h1 className="text-3xl font-bold">Command Center</h1>
         <p className="text-muted-foreground">
-          Upload a file or paste data to validate against policy. Results with &ge;80% confidence are AI-decided; below 80% requires human review.
+          Upload a file or paste data to validate against policy. Results with &ge;80% confidence are AI decided; below 80% requires human review.
         </p>
       </div>
 
@@ -520,7 +520,7 @@ export default function CommandCenterPage() {
         <CardHeader>
           <CardTitle>Data to validate</CardTitle>
           <p className="text-sm text-muted-foreground font-normal">
-            Upload CSV, PDF, or text — or paste text below. Data is persisted so you can return to it later.
+            Upload CSV, PDF, or text or paste text below. Data is persisted so you can return to it later.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -700,13 +700,13 @@ export default function CommandCenterPage() {
                   {isExpanded && (
                     <div className="border-t bg-muted/30 p-4 space-y-4">
                       <div className="rounded-lg border bg-blue-50 dark:bg-blue-950 p-3 space-y-2 min-h-[60px]">
-                        <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">📋 Reasoning summary</p>
+                        <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">Reasoning summary</p>
                         <p className="text-xs text-blue-800 dark:text-blue-200 whitespace-pre-wrap line-clamp-3">{r.reasoning || "(No reasoning provided)"}</p>
                       </div>
                         
                       {r.missing_information && r.missing_information.length > 0 && (
                         <div className="rounded-lg border bg-amber-50 dark:bg-amber-950 p-3 space-y-2 min-h-[50px]">
-                          <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">⚠️ Missing fields</p>
+                          <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">Missing fields</p>
                           <ul className="text-xs text-amber-800 dark:text-amber-200 space-y-1 ml-4">
                             {r.missing_information.map((field, i) => (
                               <li key={i} className="list-disc">{field}</li>
@@ -727,7 +727,7 @@ export default function CommandCenterPage() {
                       )}
                       
                       <div className="rounded-lg border bg-background p-4 space-y-3">
-                        <p className="text-sm font-medium">📄 Export JSON</p>
+                        <p className="text-sm font-medium">Export JSON</p>
                         <pre className="text-xs bg-muted p-3 rounded overflow-x-auto max-h-64  overflow-y-auto">
                           {JSON.stringify(buildDecisionExportJson(r), null, 2)}
                         </pre>
@@ -791,13 +791,13 @@ export default function CommandCenterPage() {
                 </div>
                 
                 <div className="rounded-lg border bg-blue-50 dark:bg-blue-950 p-3 space-y-2 min-h-[60px]">
-                  <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">📋 Reasoning summary</p>
+                  <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">Reasoning summary</p>
                   <p className="text-xs text-blue-800 dark:text-blue-200 whitespace-pre-wrap line-clamp-3">{detailResult.reasoning || "(No reasoning provided)"}</p>
                 </div>
                 
                 {detailResult.missing_information && detailResult.missing_information.length > 0 && (
                   <div className="rounded-lg border bg-amber-50 dark:bg-amber-950 p-3 space-y-2 min-h-[50px]">
-                    <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">⚠️ Missing fields</p>
+                    <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">Missing fields</p>
                     <ul className="text-xs text-amber-800 dark:text-amber-200 space-y-1 ml-4">
                       {detailResult.missing_information.map((field, i) => (
                         <li key={i} className="list-disc">{field}</li>
@@ -818,7 +818,7 @@ export default function CommandCenterPage() {
                 )}
                 
                 <div className="rounded-lg border p-4 space-y-2">
-                  <p className="text-sm font-medium">📄 Export JSON</p>
+                  <p className="text-sm font-medium">Export JSON</p>
                   <pre className="text-xs bg-muted p-3 rounded overflow-x-auto max-h-[55vh] overflow-y-auto">
                     {JSON.stringify(buildDecisionExportJson(detailResult), null, 2)}
                   </pre>

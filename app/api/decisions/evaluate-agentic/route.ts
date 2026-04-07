@@ -35,6 +35,7 @@ export async function POST(req: Request) {
       policyPackId,
       confidenceThreshold = HUMAN_REVIEW_THRESHOLD,
       additionalContext,
+      previousDecision,
     } = await req.json()
 
     if (!eventType || !eventData) {
@@ -134,6 +135,15 @@ You are an agentic compliance decision system (Attempt ${attempt}/${maxAttempts}
 
 # MANDATORY JSON OUTPUT FORMAT SCHEMA
 Analyze this event and provide a decision with confidence score.
+
+${previousDecision ? `PREVIOUS DECISION (from earlier validation):
+Outcome: ${previousDecision.outcome ?? "unknown"}
+Confidence: ${previousDecision.confidence ?? "unknown"}
+Risk score: ${previousDecision.risk_score ?? "unknown"}
+Previously missing information: ${(previousDecision.missing_information ?? []).join(", ") || "none"}
+Previously recommended actions: ${(previousDecision.recommended_actions ?? []).join("; ") || "none"}
+
+Your task on this run is to re-evaluate the decision using any new supplementary information, with special focus on whether the previously missing information is now satisfied and whether the recommended actions should be updated or narrowed.` : ""}
 
 EVENT:
 Type: ${eventType}

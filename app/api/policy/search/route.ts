@@ -2,6 +2,8 @@ import { generateText } from "@/lib/openai-client"
 import { getPolicyChunks } from "@/lib/supabase"
 import { getGraph } from "@/lib/neo4j"
 
+export const runtime = "nodejs"
+
 export async function POST(req: Request) {
   try {
     const { policyPackId, query } = await req.json()

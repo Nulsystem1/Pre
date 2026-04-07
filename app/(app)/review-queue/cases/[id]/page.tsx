@@ -193,6 +193,13 @@ export default function ReviewQueueCaseDetailPage() {
         .filter((a): a is FileAttachment => isFileAttachment(a) && !!a.extracted_text)
         .map((a) => a.extracted_text!.trim())
       const additionalContext = [noteText, ...fileTexts].filter(Boolean).join("\n\n---\n\n")
+      const previousDecision = {
+        outcome: vr.outcome,
+        confidence: vr.confidence,
+        risk_score: vr.risk_score,
+        missing_information: vr.review?.missing_fields ?? [],
+        recommended_actions: (vr.review?.recommended_actions as string[]) ?? [],
+      }
       const res = await fetch("/api/decisions/evaluate-agentic", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -202,6 +209,7 @@ export default function ReviewQueueCaseDetailPage() {
           policyPackId: caseData.policy_pack_id,
           confidenceThreshold: 0.8,
           ...(additionalContext ? { additionalContext } : {}),
+          previousDecision,
         }),
       })
       const json = await res.json()

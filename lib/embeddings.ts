@@ -1,14 +1,23 @@
 // OpenAI embeddings for Linear RAG vector search
 import OpenAI from "openai"
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+let embeddingsClient: OpenAI | null = null
+
+function getEmbeddingsClient(): OpenAI {
+  const apiKey = process.env.OPENAI_API_KEY
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY is required for embeddings. Set it at runtime or omit embedding-dependent features.")
+  }
+  if (!embeddingsClient) {
+    embeddingsClient = new OpenAI({ apiKey })
+  }
+  return embeddingsClient
+}
 
 // Generate embedding for a single text
 export async function generateEmbedding(text: string): Promise<number[]> {
   try {
-    const response = await openai.embeddings.create({
+    const response = await getEmbeddingsClient().embeddings.create({
       model: "text-embedding-3-small",
       input: text,
       encoding_format: "float",
@@ -24,7 +33,7 @@ export async function generateEmbedding(text: string): Promise<number[]> {
 // Generate embeddings for multiple texts in a batch
 export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
   try {
-    const response = await openai.embeddings.create({
+    const response = await getEmbeddingsClient().embeddings.create({
       model: "text-embedding-3-small",
       input: texts,
       encoding_format: "float",

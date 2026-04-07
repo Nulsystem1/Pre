@@ -216,6 +216,90 @@ export default function DashboardPage() {
         </Card>
       </div>
 
+      {/* Audit decision history — from same source as Audit Explorer */}
+      <Card className="mb-8 bg-zinc-900 border-zinc-800">
+        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-4">
+          <div>
+            <CardTitle className="text-white flex items-center gap-2">
+              Audit decision history
+            </CardTitle>
+            <CardDescription className="text-zinc-500">
+              Recent engine decisions; open Audit Explorer for full detail and filters.
+            </CardDescription>
+          </div>
+          <Link
+            href="/audit-explorer"
+            className="text-sm text-emerald-400 hover:text-emerald-300 transition-colors flex items-center shrink-0"
+          >
+            Open Audit Explorer <ArrowUpRight className="h-4 w-4 ml-1" />
+          </Link>
+        </CardHeader>
+        <CardContent>
+          {decisions.length === 0 ? (
+            <p className="text-sm text-zinc-500 py-6 text-center">No audit decisions yet. Run validations from Command Center.</p>
+          ) : (
+            <div className="rounded-lg border border-zinc-800 overflow-hidden">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto] gap-2 px-3 py-2 text-xs font-medium text-zinc-500 border-b border-zinc-800 bg-zinc-950/50">
+                <span>Event / summary</span>
+                <span className="text-center hidden sm:block">Status</span>
+                <span className="text-center">Outcome</span>
+                <span className="text-right">When</span>
+              </div>
+              <ul className="max-h-[220px] overflow-y-auto divide-y divide-zinc-800">
+                {[...decisions]
+                  .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                  .slice(0, 12)
+                  .map((d) => {
+                    const summary =
+                      (d.event_data?.vendor_name as string | undefined) ||
+                      (typeof d.event_data?.document_text === "string"
+                        ? `${d.event_data.document_text.slice(0, 48)}…`
+                        : null) ||
+                      d.event_type ||
+                      "Decision"
+                    const statusLabel = d.outcome
+                    const displayOutcome =
+                      d.review_queue_outcome != null && String(d.review_queue_outcome).trim() !== ""
+                        ? d.review_queue_outcome
+                        : "—"
+                    return (
+                      <li key={d.id}>
+                        <Link
+                          href="/audit-explorer"
+                          className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto] gap-2 px-3 py-2.5 text-sm items-center hover:bg-zinc-800/60 transition-colors"
+                        >
+                          <div className="min-w-0">
+                            <p className="font-medium text-zinc-200 truncate">{summary}</p>
+                            <p className="text-xs text-zinc-500 truncate">{d.event_type}</p>
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className={`hidden sm:inline-flex border-0 text-xs justify-center ${
+                              d.outcome === "APPROVED"
+                                ? "bg-emerald-500/15 text-emerald-400"
+                                : d.outcome === "BLOCKED"
+                                  ? "bg-red-500/15 text-red-400"
+                                  : "bg-amber-500/15 text-amber-400"
+                            }`}
+                          >
+                            {statusLabel}
+                          </Badge>
+                          <span className="text-xs text-zinc-400 text-center max-w-[100px] truncate" title={displayOutcome}>
+                            {displayOutcome}
+                          </span>
+                          <span className="text-xs text-zinc-500 text-right whitespace-nowrap">
+                            {new Date(d.created_at).toLocaleString()}
+                          </span>
+                        </Link>
+                      </li>
+                    )
+                  })}
+              </ul>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
 
         {/* MAIN CHARTS AREA */}

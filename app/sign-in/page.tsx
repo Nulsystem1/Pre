@@ -26,8 +26,8 @@ export default function SignInPage() {
 
           <p className="mt-8 text-center text-sm text-muted-foreground">
             Don't have an account?{" "}
-            <Link href="/sign-in" className="font-medium text-primary hover:underline">
-              Request access
+            <Link href="/sign-up" className="font-medium text-primary hover:underline">
+              Create one
             </Link>
           </p>
         </div>
@@ -49,11 +49,11 @@ export default function SignInPage() {
         </div>
 
         <div className="flex items-center gap-6 text-xs text-muted-foreground">
-          <span>SOC 2 Type II Certified</span>
+          <span>US Data Residency</span>
           <span>•</span>
-          <span>ISO 27001</span>
+          <span>US-Based Support</span>
           <span>•</span>
-          <span>GDPR Compliant</span>
+          <span>Built for US Compliance Teams</span>
         </div>
       </div>
     </div>

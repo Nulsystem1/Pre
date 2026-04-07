@@ -5,6 +5,8 @@ import { generateStructuredOutput } from "@/lib/openai-client"
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
 const MAX_CSV_ROWS_FOR_AI = 100 // cap rows sent to AI for large CSVs
 
+export const runtime = "nodejs"
+
 /**
  * POST /api/command-center/parse-data-file
  * Accepts CSV, PDF, or .txt as user data to validate.

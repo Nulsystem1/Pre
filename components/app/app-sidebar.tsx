@@ -25,12 +25,12 @@ const USER = {
   color: "bg-purple-500 text-white",
   description: "Day-to-day operations, reviews, policy management",
   navigation: [
+    { name: "User Guide", href: "/documentation", icon: BookOpen },
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Command Center", href: "/command-center", icon: Zap },
     { name: "Policy Studio", href: "/policy-studio", icon: FileCode2 },
     { name: "Review Queue", href: "/review-queue", icon: CheckSquare },
     { name: "Audit Explorer", href: "/audit-explorer", icon: Search },
-    { name: "User Guide", href: "/documentation", icon: BookOpen },
     { name: "Settings", href: "/settings", icon: Settings },
   ],
 }

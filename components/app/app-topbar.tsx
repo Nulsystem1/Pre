@@ -1,11 +1,33 @@
 "use client"
 
 import { Search } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 
 export function AppTopbar() {
+  const router = useRouter()
+
+  async function handleSignOut() {
+    const token = localStorage.getItem("authToken")
+    if (token) {
+      try {
+        await fetch("/api/auth/logout", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        })
+      } catch {
+        // Ignore logout API failures; clear local auth state regardless.
+      }
+    }
+
+    localStorage.removeItem("authToken")
+    localStorage.removeItem("refreshToken")
+    window.sessionStorage.removeItem("nul_visited_dashboard")
+    router.push("/sign-in")
+  }
+
   return (
     <header className="flex h-16 items-center justify-between border-b border-border bg-background px-6">
       <div className="flex items-center gap-4">
@@ -39,7 +61,9 @@ export function AppTopbar() {
           <DropdownMenuContent align="end">
             <DropdownMenuItem>Profile</DropdownMenuItem>
             <DropdownMenuItem>Settings</DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive">Sign out</DropdownMenuItem>
+            <DropdownMenuItem className="text-destructive" onClick={handleSignOut}>
+              Sign out
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

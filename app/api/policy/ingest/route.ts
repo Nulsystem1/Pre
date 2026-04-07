@@ -5,6 +5,8 @@ import { generateEmbeddings } from "@/lib/embeddings"
 import { generateStructuredOutput } from "@/lib/openai-client"
 import type { GraphNode, GraphEdge, PolicyChunk } from "@/lib/types"
 
+export const runtime = "nodejs"
+
 // Schema for extracting policy chunks
 const chunksSchema = z.object({
   chunks: z.array(

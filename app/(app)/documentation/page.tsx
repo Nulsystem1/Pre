@@ -11,6 +11,8 @@ import {
   ArrowRight,
   Zap,
   BarChart3,
+  LayoutDashboard,
+  PlayCircle,
 } from "lucide-react"
 
 export default function DocumentationPage() {
@@ -26,12 +28,47 @@ export default function DocumentationPage() {
         </p>
       </div>
 
+      {/* Walkthrough video — before numbered steps */}
+      <Card className="overflow-hidden border-primary/20">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <PlayCircle className="h-5 w-5 text-primary shrink-0" />
+            Walkthrough video
+          </CardTitle>
+          <CardDescription>
+            Play the overview below, then follow the steps starting with Policy Studio.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="relative w-full overflow-hidden rounded-lg border bg-muted aspect-video">
+            <iframe
+              src="https://www.loom.com/embed/a4c5f5e805694bd8a5e2cd7a9fb4efbd?hide_owner=true&hide_share=true&hide_title=true&hideEmbedTopBar=true"
+              className="absolute inset-0 h-full w-full"
+              title="NUL Compliance Control Center User Guide walkthrough"
+              allowFullScreen
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            />
+          </div>
+          <p className="text-sm text-muted-foreground">
+            <a
+              href="https://www.loom.com/share/a4c5f5e805694bd8a5e2cd7a9fb4efbd"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary underline-offset-4 hover:underline font-medium"
+            >
+              Open on Loom in a new tab
+            </a>{" "}
+            if the player does not load.
+          </p>
+        </CardContent>
+      </Card>
+
       {/* Step 1: Policy Studio - Create pack and upload */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary text-sm font-bold">1</span>
-            Policy Studio — Create a pack and upload your policy
+            Policy Studio: Create a pack and upload your policy
           </CardTitle>
           <CardDescription>Start here to bring your compliance policy into the system.</CardDescription>
         </CardHeader>
@@ -64,7 +101,7 @@ export default function DocumentationPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary text-sm font-bold">2</span>
-            Ingest &amp; Build — Build the Graph RAG
+            Ingest &amp; Build: Build the Graph RAG
           </CardTitle>
           <CardDescription>Turn your policy text into a queryable knowledge graph.</CardDescription>
         </CardHeader>
@@ -91,7 +128,7 @@ export default function DocumentationPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary text-sm font-bold">3</span>
-            Command Center — Select policy, add input, and validate
+            Command Center: Select policy, add input, and validate
           </CardTitle>
           <CardDescription>Run validations against your policy using text or uploaded files.</CardDescription>
         </CardHeader>
@@ -140,7 +177,7 @@ export default function DocumentationPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary text-sm font-bold">4</span>
-            Review Queue — Handle cases and set outcomes
+            Review Queue: Handle cases and set outcomes
           </CardTitle>
           <CardDescription>All cases created from validation results are handled here.</CardDescription>
         </CardHeader>
@@ -177,7 +214,7 @@ export default function DocumentationPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary text-sm font-bold">5</span>
-            Audit Explorer — History and traces
+            Audit Explorer: History and traces
           </CardTitle>
           <CardDescription>View all decisions, outcomes, and audit trail.</CardDescription>
         </CardHeader>
@@ -205,6 +242,30 @@ export default function DocumentationPage() {
         </CardContent>
       </Card>
 
+      {/* Sample: DoD training request */}
+      <Card className="border-primary/20 bg-muted/30">
+        <CardHeader>
+          <CardTitle className="text-lg">Sample: DoD training approval request</CardTitle>
+          <CardDescription>
+            Use this example to test Command Center validation and Review Queue: paste the first block in Command Center, then add the second block as an additional file on the case to improve the score.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <p className="text-sm font-medium text-foreground mb-1">Command Center — initial input (paste into the text area)</p>
+            <blockquote className="text-sm text-muted-foreground border-l-2 border-primary/50 pl-4 py-2 bg-background/50 rounded-r whitespace-pre-wrap">
+              I am a GS-12 DoD civilian requesting approval for a 40-hour cybersecurity certificate course directly related to my current official duties. The course is elective technical development (not mandatory training under law, regulation, Executive Order, or Component policy) and is documented in my approved IDP.
+            </blockquote>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-foreground mb-1">Review Queue — additional documents for human review (upload as a file or paste into additional data to increase the score)</p>
+            <blockquote className="text-sm text-muted-foreground border-l-2 border-primary/50 pl-4 py-2 bg-background/50 rounded-r whitespace-pre-wrap">
+              An SF-182 has been fully completed, approved, and recorded in the official TE&amp;PD electronic system, including supervisory and budget authority signatures, cost data, and planned evaluation fields. All required trainee, course, expenditure, approval, and evaluation records are currently entered and maintained in the Component&apos;s TE&amp;PD infrastructure in accordance with Enclosure 4, Sections 2a and 3c. The training provider has been verified against authorized institution listings and is not on any barred or restricted list. This 40-hour course does not trigger a Continued Service Agreement under Component policy, and no CSA is required.
+            </blockquote>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Quick reference */}
       <Card className="border-dashed">
         <CardHeader>
@@ -214,8 +275,12 @@ export default function DocumentationPage() {
         <CardContent>
           <div className="grid gap-2 text-sm">
             <div className="flex items-center gap-2">
+              <LayoutDashboard className="h-4 w-4 text-muted-foreground" />
+              <span><strong>Dashboard</strong> — Metrics, audit decision history, decision velocity, live feed, outcome chart.</span>
+            </div>
+            <div className="flex items-center gap-2">
               <FileCode2 className="h-4 w-4 text-muted-foreground" />
-              <span><strong>Policy Studio</strong> — New pack, upload policy, Ingest &amp; Build, view chunks/nodes/edges and knowledge graph.</span>
+              <span><strong>Policy Studio</strong> — New pack, upload policy, Ingest &amp; Build, view chunks/nodes/edges and knowledge graph. Note: Don't close it before it completes building and ingesting or else It will start building from scratch again.</span>
             </div>
             <div className="flex items-center gap-2">
               <Zap className="h-4 w-4 text-muted-foreground" />
